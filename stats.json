@@ -1,0 +1,33 @@
+{
+  "users": [
+    {
+      "userId": "96dpi",
+      "voteCount": 12,
+      "commentArr": [
+        "qwer1234",
+        "asdf5678"
+      ]
+    },
+    {
+      "userId": "PurpleWomat",
+      "voteCount": 124,
+      "commentArr": [
+        "k6k0jhj"
+      ]
+    },
+    {
+      "userId": "maggiehope",
+      "voteCount": 30,
+      "commentArr": [
+        "k6k2txv"
+      ]
+    },
+    {
+      "userId": "DifferentTheory2156",
+      "voteCount": 14,
+      "commentArr": [
+        "k6k48uo"
+      ]
+    }
+  ]
+}

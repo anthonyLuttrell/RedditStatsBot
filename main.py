@@ -16,12 +16,11 @@ subreddit = reddit.subreddit("cooking")
 def user_exists(user_id):
     found = False
     file = open("stats.json", "r")
-    data = json.load(file)
-    for user in data["users"]:
-        if user_id == user["userId"]:
+    obj = json.load(file)
+    for user in obj["users"]:
+        if user_id == user:
             found = True
             break
-    file.close()
     return found
 
 
@@ -30,24 +29,34 @@ while True:
         if submission.stickied is False:
             for comment in submission.comments:
                 if hasattr(comment, "body"):
-                    if comment.author is not None:
+                    user = str(comment.author)
+                    if user is not None:
                         # fileWrite = open("stats.json", "a")
                         # userData = json.load(fileWrite)
-                        if user_exists(comment.author):
-                            print("User exists: " + comment.author)
-                            # userData[comment.author]["commentArr"] += comment.body
-                            time.sleep(3)
+                        if user_exists(user):
+                            print("User exists: " + user)
+                            with open("stats.json", "r+") as fileExAppend:
+                                userObj = json.load(fileExAppend)
+                                tempUserObj = userObj["users"][user]
+                                try:
+                                    index = tempUserObj["commentId"].index(str(comment.id))
+                                except ValueError:
+                                    index = -1
+                                if index >= 0:
+                                    # if the comment already exists, update the score
+                                    newScore = comment.score
+                                    tempUserObj["commentScore"][index] = newScore
+                                else:
+                                    # if the comment doesn't exist, add the ID and the score
+                                    tempUserObj["commentId"].append(str(comment.id))
+                                    tempUserObj["commentScore"].append(comment.score)
+                                fileExAppend.seek(0)
+                                json.dump(userObj, fileExAppend, indent=2)
                         else:
-                            print("Adding new user: " + str(comment.author))
+                            print("Adding new user: " + str(user))
                             with open("stats.json", "r+") as fileAppend:
                                 newData = json.load(fileAppend)
-                                newData["users"].append({"userId": str(comment.author),
-                                                         "voteCount": comment.score,
-                                                         "commentArr": [str(comment.id)]})
+                                newData["users"][str(comment.author)] = {"commentId": [comment.id],
+                                                                         "commentScore": [comment.score]}
                                 fileAppend.seek(0)
                                 json.dump(newData, fileAppend, indent=2)
-                            # userData += {str(comment.author): [{}]}
-                            # newUser = {}
-                            # userData["users"] += newUser
-
-# TODO implement method for "downvote to remove"

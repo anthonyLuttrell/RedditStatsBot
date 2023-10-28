@@ -23,8 +23,7 @@ lock = FileLock(lockfile, timeout=1)
 
 
 def get_stats():
-
-    most_comments = []
+    totals_arr = []
     with lock:
         with open("stats.json", "r") as f:
             obj = json.load(f)
@@ -34,13 +33,22 @@ def get_stats():
                 for score in obj["users"][user]["commentScore"]:
                     total_user_comments += 1
                     total_user_score += score
-                most_comments.append([str(user), total_user_comments, total_user_score])
-    high_scores = most_comments.copy()
-    sorted(most_comments, key=lambda x: int(x[1]))
-    sorted(high_scores, key=lambda x: int(x[2]))
-    # FIXME the sorts are not working right
-    print("Most comments: " + most_comments[0][0])
-    print("High score: " + high_scores[0][0])
+                totals_arr.append([str(user), int(total_user_comments), int(total_user_score)])
+    # sort by comment count
+    totals_arr.sort(reverse=True, key=lambda x: x[1])
+    print("!*********** MOST COMMENTS *************!\n")
+    for i in range(1, 11):
+        print("#" + str(i) + " - " + totals_arr[i-1][0] + " (" + str(totals_arr[i-1][1]) + ")")
+    # sort by total score
+    totals_arr.sort(reverse=True, key=lambda x: x[2])
+    print("\n!*********** HIGH SCORE *************!\n")
+    for i in range(1, 11):
+        print("#" + str(i) + " - " + totals_arr[i-1][0] + " (" + str(totals_arr[i-1][2]) + ")")
+    # calculate and sort by ratio (score / count)
+    totals_arr.sort(reverse=True, key=lambda x: x[2] / x[1])
+    print("\n!*********** RATIO *************!\n")
+    for i in range(1, 11):
+        print("#" + str(i) + " - " + totals_arr[i-1][0] + " (" + str(totals_arr[i-1][2]) + ")")
 
 
 def user_exists(user_id_to_check):
@@ -90,7 +98,7 @@ def add_new(comment_to_add):
 
 
 while True:
-    get_stats()
+    # get_stats()
     start_seconds = time.process_time()
 
     for submission in subreddit.hot(limit=1000):

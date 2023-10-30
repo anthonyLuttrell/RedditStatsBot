@@ -1,7 +1,12 @@
 import datetime
+import os
+import sys
 import time
 import json
 import praw
+
+# TODO track new comments after each loop
+# TODO run main loop once every 12 hours
 
 reddit = praw.Reddit(
     client_id="KLDbru6psQuK3GSKc0jfKg",
@@ -11,12 +16,13 @@ reddit = praw.Reddit(
     password="KTL5zm&@Jy75j#a&"
 )
 
-SUB = "cooking"
+SUB = "Cooking"
 NUM_OF_POSTS_TO_SCAN = 1000  # this will include stickied posts
-MINUTES_TO_RUN = 120
+MINUTES_TO_RUN = 60
 time_elapsed = 0.0
 total_posts = 0
 total_comments = 0
+total_users = 0
 start_seconds = 0
 end_seconds = 0
 
@@ -36,21 +42,25 @@ def get_stats():
             total_user_score += score
         totals_arr.append([str(user), int(total_user_comments), int(total_user_score)])
 
+    length = 101 if len(totals_arr) >= 100 else (len(totals_arr) + 1)
     # sort by total score
     totals_arr.sort(reverse=True, key=lambda x: x[2])
     log.write("\n!***************** HIGH SCORE *******************!\n")
-    for i in range(1, 101):
+    log.write("--Top " + str(length - 1) + " users out of " + str(len(totals_arr)) + "--\n")
+    for i in range(1, length):
         log.write("#" + str(i) + " - " + totals_arr[i - 1][0] + " (" + str(totals_arr[i - 1][2]) + ")\n")
 
     # sort by comment count
     totals_arr.sort(reverse=True, key=lambda x: x[1])
     log.write("\n!********** MOST PROLIFIC COMMENTERS ************!\n")
-    for i in range(1, 101):
+    log.write("--Top " + str(length - 1) + " users out of " + str(len(totals_arr)) + "--\n")
+    for i in range(1, length):
         log.write("#" + str(i) + " - " + totals_arr[i - 1][0] + " (" + str(totals_arr[i - 1][1]) + ")\n")
 
     # calculate and sort by ratio (score / count)
     log.write("\n!************* TOP 1% MOST HELPFUL **************!\n")
-    top_1_percent = (len(totals_arr) * 0.01)
+    top_1_percent = (round(len(totals_arr) * 0.01))
+    log.write("--Top " + str(top_1_percent - 1) + " users out of " + str(len(totals_arr)) + "--\n")
     for i in range(0, round(top_1_percent)):
         # totals_arr is currently sorted by  most comments first
         ratio_arr.append([totals_arr[i][0], round((totals_arr[i][2]) / (totals_arr[i][1]), 2)])
@@ -92,47 +102,59 @@ def add_new(comment_to_add):
                                                 "commentScore": [comment_to_add.score]}
 
 
-print("Logged in as: ", reddit.user.me())
+try:
+    print("Logged in as: ", reddit.user.me())
 
-while time_elapsed <= MINUTES_TO_RUN:
-    total_posts = 0
-    total_comments = 0
+    while time_elapsed <= MINUTES_TO_RUN:
+        total_posts = 0
+        total_comments = 0
 
-    with open("stats.json", "r+") as f:
-        obj = json.load(f)
-        start_seconds = time.perf_counter()
+        with open("stats.json", "r+") as f:
+            obj = json.load(f)
+            start_seconds = time.perf_counter()
 
-        for submission in SUBREDDIT.hot(limit=NUM_OF_POSTS_TO_SCAN):
+            for submission in SUBREDDIT.hot(limit=NUM_OF_POSTS_TO_SCAN):
 
-            if submission.stickied is False:
-                total_posts += 1
-                print("\r", "Began scanning submission ID " +
-                      str(submission.id) + " at " + time.strftime("%H:%M:%S"), end="")
+                if submission.stickied is False:
+                    total_posts += 1
+                    print("\r", "Began scanning submission ID " +
+                          str(submission.id) + " at " + time.strftime("%H:%M:%S"), end="")
 
-                for comment in submission.comments:
-                    total_comments += 1
+                    for comment in submission.comments:
+                        total_comments += 1
 
-                    if hasattr(comment, "body"):
-                        user_id = str(comment.author)
+                        if hasattr(comment, "body"):
+                            user_id = str(comment.author)
 
-                        if user_id != "None":
+                            if user_id != "None":
 
-                            if user_exists(user_id):
-                                update_existing(comment)
-                            else:
-                                add_new(comment)
+                                if user_exists(user_id):
+                                    update_existing(comment)
+                                else:
+                                    add_new(comment)
+                        time.sleep(0.1)  # used to avoid HTTP 429 errors
+                time.sleep(0.1)  # used to avoid HTTP 429 errors
 
-    end_seconds = time.perf_counter()
-    time_elapsed += (end_seconds - start_seconds) / 60
-    print("\nMinutes elapsed: " + str(round(time_elapsed, 2)))
-    print("\n!************** Main Loop Finished **************!\n")
-    log = open("log.txt", "a")
-    log.write("\n!************** Main Loop Finished **************!")
-    log.write("\nTime of last loop:      " + str(datetime.timedelta(seconds=(end_seconds - start_seconds))))
-    log.write("\nTotal posts scanned:    " + str(total_posts))
-    log.write("\nTotal comments scanned: " + str(total_comments))
-    get_stats()
-    log.close()
+        end_seconds = time.perf_counter()
+        time_elapsed += (end_seconds - start_seconds) / 60
+        print("\nMinutes elapsed: " + str(round(time_elapsed, 2)))
+        print("\n!************** Main Loop Finished **************!\n")
+        log = open("log.txt", "w")
+        log.write("\n!************** Main Loop Finished **************!")
+        log.write("\nTime of last loop:      " + str(datetime.timedelta(seconds=(end_seconds - start_seconds))))
+        log.write("\nTotal posts scanned:    " + str(total_posts))
+        log.write("\nTotal comments scanned: " + str(total_comments))
+        get_stats()
+        log.close()
+        with open("stats.json", "w") as f:
+            f.seek(0)
+            json.dump(obj, f, indent=2)
+        time.sleep(0.1)  # used to avoid HTTP 429 errors
+except KeyboardInterrupt:
     with open("stats.json", "w") as f:
         f.seek(0)
         json.dump(obj, f, indent=2)
+    try:
+        sys.exit(130)
+    except SystemExit:
+        os.system(exit(130))

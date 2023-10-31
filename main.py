@@ -5,8 +5,7 @@ import time
 import json
 import praw
 
-# TODO track new comments after each loop
-# TODO run main loop once every 12 hours
+# TODO update user flair on the 1st of every month using UTC time
 
 reddit = praw.Reddit(
     client_id="KLDbru6psQuK3GSKc0jfKg",
@@ -18,11 +17,11 @@ reddit = praw.Reddit(
 
 SUB = "Cooking"
 NUM_OF_POSTS_TO_SCAN = 1000  # this will include stickied posts
-MINUTES_TO_RUN = 60
+HOURS = 2
+SLEEP_TIME_SECONDS = HOURS * 60 * 60
 time_elapsed = 0.0
 total_posts = 0
 total_comments = 0
-total_users = 0
 start_seconds = 0
 end_seconds = 0
 
@@ -102,10 +101,23 @@ def add_new(comment_to_add):
                                                 "commentScore": [comment_to_add.score]}
 
 
+def sleep():
+    sleep_time = time.strftime("%H:%M:%S")
+    for i in range(0, SLEEP_TIME_SECONDS):
+        time.sleep(1)
+        print("\r", "Sleeping since " + sleep_time +
+              ", waking up in " + str(SLEEP_TIME_SECONDS - i).rjust(5, "0") + " seconds", end="")
+
+
+def edit_flair(user_id_to_edit):
+    SUBREDDIT.flair.set(user_id_to_edit, text="You've Got Flair!")
+
+
 try:
     print("Logged in as: ", reddit.user.me())
-
-    while time_elapsed <= MINUTES_TO_RUN:
+    last_total_comments = 0
+    while True:
+        last_total_comments = total_comments
         total_posts = 0
         total_comments = 0
 
@@ -127,30 +139,32 @@ try:
                             user_id = str(comment.author)
 
                             if user_id != "None":
-
                                 if user_exists(user_id):
                                     update_existing(comment)
                                 else:
                                     add_new(comment)
-                        time.sleep(0.1)  # used to avoid HTTP 429 errors
-                time.sleep(0.1)  # used to avoid HTTP 429 errors
+                        time.sleep(0.1)  # avoids HTTP 429 errors
+                time.sleep(0.1)  # avoids HTTP 429 errors
 
         end_seconds = time.perf_counter()
         time_elapsed += (end_seconds - start_seconds) / 60
         print("\nMinutes elapsed: " + str(round(time_elapsed, 2)))
         print("\n!************** Main Loop Finished **************!\n")
-        log = open("log.txt", "w")
+        log = open("log.txt", "w")  # intentionally overwriting the entire file content
         log.write("\n!************** Main Loop Finished **************!")
         log.write("\nTime of last loop:      " + str(datetime.timedelta(seconds=(end_seconds - start_seconds))))
         log.write("\nTotal posts scanned:    " + str(total_posts))
         log.write("\nTotal comments scanned: " + str(total_comments))
+        log.write("\nNew comments scanned:   " + str(total_comments - last_total_comments))
         get_stats()
         log.close()
         with open("stats.json", "w") as f:
             f.seek(0)
             json.dump(obj, f, indent=2)
-        time.sleep(0.1)  # used to avoid HTTP 429 errors
+        sleep()
+
 except KeyboardInterrupt:
+    # catches Ctrl+C and IDE program interruption to ensure we write to the json file
     with open("stats.json", "w") as f:
         f.seek(0)
         json.dump(obj, f, indent=2)

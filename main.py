@@ -6,24 +6,16 @@ import json
 import praw
 
 # TODO update user flair on the 1st of every month using UTC time
-
-reddit = praw.Reddit(
-    client_id="KLDbru6psQuK3GSKc0jfKg",
-    client_secret="I7DxzzSMplYt4Bxb_bD5eDEjei8N3Q",
-    user_agent="<console:alpha-bot2:1.0>",
-    username="Alphabet--bot",
-    password="KTL5zm&@Jy75j#a&"
-)
+reddit = praw.Reddit("CookingStatsBot", user_agent="Karma Stats Bot by u/96dpi")
 
 SUB = "Cooking"
 NUM_OF_POSTS_TO_SCAN = 1000  # this will include stickied posts
-HOURS = 2
-SLEEP_TIME_SECONDS = HOURS * 60 * 60
-time_elapsed = 0.0
-total_posts = 0
-total_comments = 0
+HOURS = 6
+SLEEP_TIME_SECONDS = int(HOURS * 60 * 60)
 start_seconds = 0
 end_seconds = 0
+flair_saved = False
+previous_day = 0
 
 SUBREDDIT = reddit.subreddit(SUB)
 
@@ -42,14 +34,14 @@ def get_stats():
         totals_arr.append([str(user), int(total_user_comments), int(total_user_score)])
 
     length = 101 if len(totals_arr) >= 100 else (len(totals_arr) + 1)
-    # sort by total score
+    # index 2 sorts by total score
     totals_arr.sort(reverse=True, key=lambda x: x[2])
     log.write("\n!***************** HIGH SCORE *******************!\n")
     log.write("--Top " + str(length - 1) + " users out of " + str(len(totals_arr)) + "--\n")
     for i in range(1, length):
         log.write("#" + str(i) + " - " + totals_arr[i - 1][0] + " (" + str(totals_arr[i - 1][2]) + ")\n")
 
-    # sort by comment count
+    # index 1 sorts by comment count
     totals_arr.sort(reverse=True, key=lambda x: x[1])
     log.write("\n!********** MOST PROLIFIC COMMENTERS ************!\n")
     log.write("--Top " + str(length - 1) + " users out of " + str(len(totals_arr)) + "--\n")
@@ -61,7 +53,7 @@ def get_stats():
     top_1_percent = (round(len(totals_arr) * 0.01))
     log.write("--Top " + str(top_1_percent - 1) + " users out of " + str(len(totals_arr)) + "--\n")
     for i in range(0, round(top_1_percent)):
-        # totals_arr is currently sorted by  most comments first
+        # totals_arr is currently sorted by most comments first
         ratio_arr.append([totals_arr[i][0], round((totals_arr[i][2]) / (totals_arr[i][1]), 2)])
     ratio_arr.sort(reverse=True, key=lambda x: x[1])
     for i in range(1, round(top_1_percent)):
@@ -106,18 +98,23 @@ def sleep():
     for i in range(0, SLEEP_TIME_SECONDS):
         time.sleep(1)
         print("\r", "Sleeping since " + sleep_time +
-              ", waking up in " + str(SLEEP_TIME_SECONDS - i).rjust(5, "0") + " seconds", end="")
+              ", waking up in " + str(SLEEP_TIME_SECONDS - i).rjust(5, "0") + " sec", end="")
 
 
-def edit_flair(user_id_to_edit):
-    SUBREDDIT.flair.set(user_id_to_edit, text="You've Got Flair!")
+def edit_flair():
+    print("No flair to edit :-(")
 
 
 try:
     print("Logged in as: ", reddit.user.me())
+    total_comments = 0
     last_total_comments = 0
     while True:
+        if int(datetime.datetime.today().day) - previous_day < 0:
+            # only true on the first iteration on the 1st day of the month
+            edit_flair()
         last_total_comments = total_comments
+        time_elapsed = 0
         total_posts = 0
         total_comments = 0
 
@@ -133,9 +130,8 @@ try:
                           str(submission.id) + " at " + time.strftime("%H:%M:%S"), end="")
 
                     for comment in submission.comments:
-                        total_comments += 1
-
-                        if hasattr(comment, "body"):
+                        if hasattr(comment, "body") and not comment.stickied:
+                            total_comments += 1
                             user_id = str(comment.author)
 
                             if user_id != "None":
@@ -149,7 +145,6 @@ try:
         end_seconds = time.perf_counter()
         time_elapsed += (end_seconds - start_seconds) / 60
         print("\nMinutes elapsed: " + str(round(time_elapsed, 2)))
-        print("\n!************** Main Loop Finished **************!\n")
         log = open("log.txt", "w")  # intentionally overwriting the entire file content
         log.write("\n!************** Main Loop Finished **************!")
         log.write("\nTime of last loop:      " + str(datetime.timedelta(seconds=(end_seconds - start_seconds))))
@@ -162,12 +157,19 @@ try:
             f.seek(0)
             json.dump(obj, f, indent=2)
         sleep()
+        previous_day = datetime.datetime.today().day
 
 except KeyboardInterrupt:
     # catches Ctrl+C and IDE program interruption to ensure we write to the json file
-    with open("stats.json", "w") as f:
-        f.seek(0)
-        json.dump(obj, f, indent=2)
+    try:
+        with open("stats.json", "w") as f:
+            f.seek(0)
+            json.dump(obj, f, indent=2)
+    except NameError:
+        try:
+            sys.exit(130)
+        except SystemExit:
+            os.system(exit(130))
     try:
         sys.exit(130)
     except SystemExit:

@@ -6,6 +6,7 @@ import json
 import praw
 
 # TODO update user flair on the 1st of every month using UTC time
+# TODO simplify to only Top 1% Most Helpful
 reddit = praw.Reddit("CookingStatsBot", user_agent="Karma Stats Bot by u/96dpi")
 
 SUB = "Cooking"
@@ -113,6 +114,7 @@ try:
         if int(datetime.datetime.today().day) - previous_day < 0:
             # only true on the first iteration on the 1st day of the month
             edit_flair()
+        previous_day = datetime.datetime.today().day
         last_total_comments = total_comments
         time_elapsed = 0
         total_posts = 0
@@ -157,7 +159,6 @@ try:
             f.seek(0)
             json.dump(obj, f, indent=2)
         sleep()
-        previous_day = datetime.datetime.today().day
 
 except KeyboardInterrupt:
     # catches Ctrl+C and IDE program interruption to ensure we write to the json file

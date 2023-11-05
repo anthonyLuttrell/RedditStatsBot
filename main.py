@@ -22,9 +22,9 @@ from prawcore import OAuthException
 REDDIT = praw.Reddit("CookingStatsBot", user_agent="r/Cooking Stats Bot by u/96dpi")
 SUB = "Cooking"
 SUBREDDIT = REDDIT.subreddit(SUB)
-NUM_OF_POSTS_TO_SCAN = 1000  # this will include stickied posts, which we are skipping
+NUM_OF_POSTS_TO_SCAN = 10  # this will include stickied posts, which we are skipping
 HOURS = 6
-SLEEP_TIME_SECONDS = int(HOURS * 60 * 60)
+SLEEP_TIME_SECONDS = 10 # int(HOURS * 60 * 60)
 FLAIR_TEXT = "Top 1% Most Helpful Users of "
 MONTHS = ['December', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October',
           'November', '']
@@ -36,42 +36,50 @@ previous_day = 31
 
 
 # ************************************************* GLOBAL CONSTANTS ************************************************* #
-def get_stats():
-    totals_arr = []
-    ratio_arr = []
+def edit_flair():
+    """only true on the first iteration on the 1st day of the month"""
+    if (int(datetime.datetime.today().day) - previous_day) < 0:
+        totals_arr = []
+        ratio_arr = []
 
-    # only true on the first iteration on the 1st day of the month
-    edit_flair = (int(datetime.datetime.today().day) - previous_day) < 0
+        """
+        Build an array in this format:
+        [ [(string) Username, (int) Total Comments, (int) Total Score, (int) Total Negative Comments] ]
+        """
+        for user in obj["users"]:
+            total_user_comments = 0
+            total_user_score = 0
+            total_user_negatives = 0
+            for score in obj["users"][user]["commentScore"]:
+                total_user_comments += 1
+                total_user_score += score
+                if score < 0:
+                    total_user_negatives += 1
+            totals_arr.append([str(user), int(total_user_comments), int(total_user_score), int(total_user_negatives)])
 
-    # [ [(string) Username, (int) Total Comments, (int) Total Score, (int) Total Negative Comments] ]
-    for user in obj["users"]:
-        total_user_comments = 0
-        total_user_score = 0
-        total_user_negatives = 0
-        for score in obj["users"][user]["commentScore"]:
-            total_user_comments += 1
-            total_user_score += score
-            if score < 0:
-                total_user_negatives += 1
-        totals_arr.append([str(user), int(total_user_comments), int(total_user_score), int(total_user_negatives)])
-
-    if edit_flair:
-        # index 1 sorts by comment count
+        """index 1 sorts by comment count"""
         totals_arr.sort(reverse=True, key=lambda x: x[1])
 
-        # calculate and sort by average comment score (score / count)
+        """
+        Calculate the top 1% of the number of users in totals_arr and starting with totals_arr sorted by most comments, 
+        append each user to ratio_arr, which gives us a list of the most helpful users (see bugs section) ratio_arr is 
+        in the format: [[(string) username, (int) average score]]
+        """
         top_1_percent = (round(len(totals_arr) * 0.01))
         for i in range(0, top_1_percent):
             if totals_arr[i][3] == 0:  # skip those with a negative top-level comment
                 ratio_arr.append([totals_arr[i][0], round((totals_arr[i][2]) / (totals_arr[i][1]), 2)])
-
+        """index 1 sorts by average score"""
         ratio_arr.sort(reverse=True, key=lambda x: x[1])
+
         log.write("\n!************* TOP 1% MOST HELPFUL **************!\n")
         log.write("--Top " + str(top_1_percent) + " users out of " + str(len(totals_arr)) + "--\n")
 
         for i in range(0, len(ratio_arr)):
             log.write("#" + str(i + 1) + " - " + ratio_arr[i - 1][0] + " (" + str(ratio_arr[i - 1][1]) + ")\n")
             flair_string = (FLAIR_TEXT + MONTHS[int(datetime.datetime.today().month) - 1])
+
+            """MAKE SURE TO COMMENT OUT THIS LINE WHEN DEBUGGING!!!"""
             # SUBREDDIT.flair.set(ratio_arr[i][0], text=flair_string)
             print(ratio_arr[i][0] + " -- " + flair_string)
 
@@ -112,8 +120,11 @@ def add_new(comment_to_add):
 def sleep():
     sleep_time = time.strftime("%H:%M:%S")
     for i in range(0, SLEEP_TIME_SECONDS):
+        # FIXME this does not print in Docker logs
         print("\r", "Sleeping since " + sleep_time + ", waking up in " +
               str(SLEEP_TIME_SECONDS - i).rjust(5, "0") + " sec", end="")
+        # including this as a workaround for the Docker logs, remove when fixed
+        # print("Sleeping since " + sleep_time + ", waking up in " + str(HOURS) + " hours.")
         time.sleep(1)
 
 
@@ -156,6 +167,7 @@ try:
 
                     if submission.stickied is False:
                         total_posts += 1
+                        # FIXME this does not print in Docker logs
                         print("\r", "Began scanning submission ID " +
                               str(submission.id) + " at " + time.strftime("%H:%M:%S"), end="")
 
@@ -182,7 +194,7 @@ try:
             log.write("\nTotal posts scanned:    " + str(total_posts))
             log.write("\nTotal comments scanned: " + str(total_comments))
             log.write("\nNew comments scanned:   " + str(total_comments - last_total_comments))
-            get_stats()
+            edit_flair()
             log.close()
             try:
                 with open("log/stats.json", "w") as f:

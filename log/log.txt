@@ -1,0 +1,5 @@
+!************** Main Loop Finished **************!
+Time of last loop:      0:00:38.566040
+Total posts scanned:    4
+Total comments scanned: 313
+New comments scanned:   1

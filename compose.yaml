@@ -1,2 +1,2 @@
 volumes:
-   - /mnt/user/appdata/statsbot:/statsbot/log:rw
+   -/mnt/user/appdata/statsbot:/statsbot:rw

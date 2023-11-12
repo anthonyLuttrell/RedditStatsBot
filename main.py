@@ -1,4 +1,5 @@
 import datetime
+import math
 import os
 import sys
 import time
@@ -19,69 +20,130 @@ from prawcore import OAuthException
 # FIXME I do not believe we are handling KeyboardInterrupt correctly when stopping a Docker container
 
 # ************************************************* GLOBAL CONSTANTS ************************************************* #
-REDDIT = praw.Reddit("CookingStatsBot", user_agent="r/Cooking Stats Bot by u/96dpi")
+BOT_NAME = "CookingStatsBot"
+REDDIT = praw.Reddit(BOT_NAME, user_agent="r/Cooking Stats Bot by u/96dpi")
 SUB = "Cooking"
 SUBREDDIT = REDDIT.subreddit(SUB)
-NUM_OF_POSTS_TO_SCAN = 10  # this will include stickied posts, which we are skipping
+NUM_OF_POSTS_TO_SCAN = 1000  # this will include stickied posts, which we are skipping
 HOURS = 6
-SLEEP_TIME_SECONDS = 10 # int(HOURS * 60 * 60)
+SLEEP_TIME_SECONDS = int(HOURS * 60 * 60)
 FLAIR_TEXT = "Top 1% Most Helpful Users of "
-MONTHS = ['December', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October',
-          'November', '']
+MONTHS = [['December', ''], ['January', ''], ['February', ''], ['March', ''], ['April', ''], ['May', ''], ['June', ''],
+          ['July', ''], ['August', ''], ['September', ''], ['October', ''], ['November', ''], None]
+MONTH_NAME_INDEX = 0
+FLAIR_TEMPLATE_ID_INDEX = 1
 
 # ************************************************* GLOBAL VARIABLES ************************************************* #
 start_seconds = 0
 end_seconds = 0
-previous_day = 31
+previous_day = 0
 
 
 # ************************************************* GLOBAL CONSTANTS ************************************************* #
 def edit_flair():
-    """only true on the first iteration on the 1st day of the month"""
-    if (int(datetime.datetime.today().day) - previous_day) < 0:
-        totals_arr = []
-        ratio_arr = []
+    # only true on the first iteration on the 1st day of the month
+    is_new_month = (int(datetime.datetime.today().day) - previous_day) < 0
 
-        """
-        Build an array in this format:
+    totals_arr = []
+    ratio_arr = []
+
+    """
+    Build an array in this format:
+    
         [ [(string) Username, (int) Total Comments, (int) Total Score, (int) Total Negative Comments] ]
-        """
-        for user in obj["users"]:
-            total_user_comments = 0
-            total_user_score = 0
-            total_user_negatives = 0
-            for score in obj["users"][user]["commentScore"]:
-                total_user_comments += 1
-                total_user_score += score
-                if score < 0:
-                    total_user_negatives += 1
-            totals_arr.append([str(user), int(total_user_comments), int(total_user_score), int(total_user_negatives)])
+    
+    I am currently not doing anything useful with the total comments and total score besides calculating the average
+    """
+    for user in obj["users"]:
+        total_user_comments = 0
+        total_user_score = 0
+        total_user_negatives = 0
+        for score in obj["users"][user]["commentScore"]:
+            total_user_comments += 1
+            total_user_score += score
+            if score < 0:
+                total_user_negatives += 1
+        totals_arr.append([str(user), int(total_user_comments), int(total_user_score), int(total_user_negatives)])
 
-        """index 1 sorts by comment count"""
-        totals_arr.sort(reverse=True, key=lambda x: x[1])
+    totals_arr.sort(reverse=True, key=lambda x: x[1])  # index 1 sorts by average score
 
-        """
-        Calculate the top 1% of the number of users in totals_arr and starting with totals_arr sorted by most comments, 
-        append each user to ratio_arr, which gives us a list of the most helpful users (see bugs section) ratio_arr is 
-        in the format: [[(string) username, (int) average score]]
-        """
-        top_1_percent = (round(len(totals_arr) * 0.01))
-        for i in range(0, top_1_percent):
-            if totals_arr[i][3] == 0:  # skip those with a negative top-level comment
-                ratio_arr.append([totals_arr[i][0], round((totals_arr[i][2]) / (totals_arr[i][1]), 2)])
-        """index 1 sorts by average score"""
-        ratio_arr.sort(reverse=True, key=lambda x: x[1])
+    """
+    Calculate the top 1% of the number of users in totals_arr and starting with totals_arr sorted by most comments, 
+    append each user to ratio_arr, which gives us a list of the most helpful users (see bugs section) ratio_arr is 
+    in the format: [[(string) username, (int) average score]]
+    """
+    top_1_percent = math.ceil(len(totals_arr) * 0.01)  # ceil ensures we always have at least 1 entry in the list
+    for i in range(0, top_1_percent):
+        if totals_arr[i][3] == 0:  # skip those with a negative top-level comment
+            ratio_arr.append([totals_arr[i][0], round((totals_arr[i][2]) / (totals_arr[i][1]), 2)])
 
-        log.write("\n!************* TOP 1% MOST HELPFUL **************!\n")
-        log.write("--Top " + str(top_1_percent) + " users out of " + str(len(totals_arr)) + "--\n")
+    ratio_arr.sort(reverse=True, key=lambda x: x[1])  # index 1 sorts by average score
+
+    if is_new_month:
+        prev_month = int(datetime.datetime.today().month) - 1
+        get_flair_template_ids()
+        """MAKE SURE TO COMMENT OUT THESE LINES WHEN DEBUGGING!!!"""
+        SUBREDDIT.flair.delete_all()  # you may or may not want to delete the flair for all users of a subreddit!
+        for i in range(0, len(ratio_arr)):
+            SUBREDDIT.flair.set(ratio_arr[i][0], flair_template_id=MONTHS[prev_month][FLAIR_TEMPLATE_ID_INDEX])
+
+    edit_wiki(ratio_arr, is_new_month)
+    return is_new_month
+
+
+def get_flair_template_ids():
+    missing_months = 0
+
+    for month in MONTHS:
+        if month is None:
+            break
+        found = False
+        for template in SUBREDDIT.flair.templates:
+            if month[MONTH_NAME_INDEX] in template["text"]:
+                month[FLAIR_TEMPLATE_ID_INDEX] = template["id"]
+                found = True
+                break
+
+        if not found:
+            missing_months += 1
+
+    if missing_months > 0:
+        # I'm not sure how to handle this yet. This means that the sub must maintain a unique user flair template that
+        # contains the matching string for each month. If we don't want to include the name of the month in each flair,
+        # then this is all unnecessary.
+        print("User Flair template list is missing " + str(missing_months) + " month(s)")
+
+
+def edit_wiki(ratio_arr, new_month):
+
+    ####################################################################################################################
+    # We edit the wiki upon two conditions:
+    #
+    #   1. After every 6-hour iteration (we do not edit user flair in this case).
+    #   2. After the first iteration of the main loop on the 1st day of the month.
+    #
+    # This will accept Markdown syntax and the Reddit wiki pages will create a TOC based on the tags used. This may be
+    # helpful for future needs.
+    ####################################################################################################################
+
+    if new_month:
+        month_string = MONTHS[int(datetime.datetime.today().month) - 1][MONTH_NAME_INDEX]
+        reason_string = month_string + "'s Top 1% update"
+        wiki_content = ("Top 1% Most Helpful Users of " + month_string)
 
         for i in range(0, len(ratio_arr)):
-            log.write("#" + str(i + 1) + " - " + ratio_arr[i - 1][0] + " (" + str(ratio_arr[i - 1][1]) + ")\n")
-            flair_string = (FLAIR_TEXT + MONTHS[int(datetime.datetime.today().month) - 1])
+            wiki_content += ("\n\n" + str(i+1) + ". " + ratio_arr[i][0] +
+                             " [ average score: " + str(ratio_arr[i][1]) + " ]")
 
-            """MAKE SURE TO COMMENT OUT THIS LINE WHEN DEBUGGING!!!"""
-            # SUBREDDIT.flair.set(ratio_arr[i][0], text=flair_string)
-            print(ratio_arr[i][0] + " -- " + flair_string)
+        # this will add a new revision to an existing page, or create the page if it doesn't exist
+        SUBREDDIT.wiki[BOT_NAME].edit(content=wiki_content, reason=reason_string)
+    else:
+        wiki_content = "Last updated (UTC): " + str(datetime.datetime.utcnow())
+        reason_string = "6-hour-update"
+        for i in range(0, len(ratio_arr)):
+            wiki_content += ("\n\n" + str(i+1) + ". " + ratio_arr[i][0] +
+                             " [ average score: " + str(ratio_arr[i][1]) + " ]")
+        SUBREDDIT.wiki[BOT_NAME + "/" + reason_string].edit(content=wiki_content, reason=reason_string)
 
 
 def user_exists(user_id_to_check):
@@ -119,12 +181,13 @@ def add_new(comment_to_add):
 
 def sleep():
     sleep_time = time.strftime("%H:%M:%S")
+    # including this as a workaround for the Docker logs, remove when fixed
+    print("Sleeping since " + sleep_time + ", waking up in " + str(HOURS) + " hours.")
+
     for i in range(0, SLEEP_TIME_SECONDS):
         # FIXME this does not print in Docker logs
-        print("\r", "Sleeping since " + sleep_time + ", waking up in " +
-              str(SLEEP_TIME_SECONDS - i).rjust(5, "0") + " sec", end="")
-        # including this as a workaround for the Docker logs, remove when fixed
-        # print("Sleeping since " + sleep_time + ", waking up in " + str(HOURS) + " hours.")
+        # print("\r", "Sleeping since " + sleep_time + ", waking up in " +
+        #       str(SLEEP_TIME_SECONDS - i).rjust(5, "0") + " sec", end="")
         time.sleep(1)
 
 
@@ -145,9 +208,10 @@ try:
 
     try:
         SUBREDDIT.mod.accept_invite()
-        print("Mod invite accepted from r/" + SUB)
+        print("Mod invite accepted from r/" + SUB + ", starting main program.")
     except RedditAPIException:
-        print("No pending mod invites from r/" + SUB + ". Starting main program.")
+        print("No pending mod invites from r/" + SUB + ". Assuming the account u/" + BOT_NAME + " is already a mod with"
+              " flair and wiki permissions, starting main program.")
 
     total_comments = 0
     last_total_comments = 0
@@ -159,7 +223,7 @@ try:
         total_comments = 0
 
         try:
-            with open("log/stats.json", "r+") as f:
+            with open("stats.json", "r+") as f:
                 obj = json.load(f)
                 start_seconds = time.perf_counter()
 
@@ -171,11 +235,12 @@ try:
                         print("\r", "Began scanning submission ID " +
                               str(submission.id) + " at " + time.strftime("%H:%M:%S"), end="")
 
+                        submission.comments.replace_more(limit=0)
                         for comment in submission.comments:
-                            if hasattr(comment, "body") and not comment.distinguished:
+                            if not comment.distinguished:
                                 user_id = str(comment.author)
                                 total_comments += 1
-
+                                # print("\r", "Total Comments Scanned: " + str(total_comments), end="")
                                 if user_id != "None":
                                     if user_exists(user_id):
                                         update_existing(comment)
@@ -188,16 +253,13 @@ try:
             end_seconds = time.perf_counter()
             time_elapsed += (end_seconds - start_seconds) / 60
             print("\nTime elapsed: " + str(datetime.timedelta(minutes=time_elapsed)))
-            log = open("log/log.txt", "w")  # intentionally overwriting the entire file content
-            log.write("!************** Main Loop Finished **************!")
-            log.write("\nTime of last loop:      " + str(datetime.timedelta(seconds=(end_seconds - start_seconds))))
-            log.write("\nTotal posts scanned:    " + str(total_posts))
-            log.write("\nTotal comments scanned: " + str(total_comments))
-            log.write("\nNew comments scanned:   " + str(total_comments - last_total_comments))
-            edit_flair()
-            log.close()
+
+            if edit_flair():
+                # clear out the comment log at the beginning of each month
+                obj["users"] = {}
+
             try:
-                with open("log/stats.json", "w") as f:
+                with open("stats.json", "w") as f:
                     f.seek(0)
                     json.dump(obj, f, indent=2)
                 sleep()
@@ -213,7 +275,7 @@ except KeyboardInterrupt:
     # catches Ctrl+C and IDE program interruption to ensure we write to the json file
     try:
         print("\n-- Process halted, dumping JSON file --")
-        with open("log/stats.json", "w") as f:
+        with open("stats.json", "w") as f:
             f.seek(0)
             json.dump(obj, f, indent=2)
     except NameError:

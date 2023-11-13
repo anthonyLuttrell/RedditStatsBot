@@ -27,7 +27,6 @@ SUBREDDIT = REDDIT.subreddit(SUB)
 NUM_OF_POSTS_TO_SCAN = 1000  # this will include stickied posts, which we are skipping
 HOURS = 6
 SLEEP_TIME_SECONDS = int(HOURS * 60 * 60)
-FLAIR_TEXT = "Top 1% Most Helpful Users of "
 MONTHS = [['December', ''], ['January', ''], ['February', ''], ['March', ''], ['April', ''], ['May', ''], ['June', ''],
           ['July', ''], ['August', ''], ['September', ''], ['October', ''], ['November', ''], None]
 MONTH_NAME_INDEX = 0

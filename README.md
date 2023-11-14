@@ -1,6 +1,6 @@
 ### Getting started
 
-1. IDE - Use whatever you prefer, but I highly recommend [PyCharm Community Edition](https://download.jetbrains.com/python/pycharm-community-2023.2.4.exe). First, go ahead and clone the master branch to your local PC. If you are using an IDE with Git integration, it will make your life way easier if you use that. PyCharm has a terrific Git interface.
+1. IDE - Use whatever you prefer, but I highly recommend [PyCharm Community Edition](https://download.jetbrains.com/python/pycharm-community-2023.2.4.exe). First, go ahead and clone the master branch to your local PC. If you need help doing this, just ask. If you are using an IDE with Git integration, it will make your life way easier if you use that. PyCharm has a terrific Git interface.
 2. The program uses [PRAW](https://praw.readthedocs.io/en/stable/index.html) to interface with Reddit, rather than directly with Reddit's API. There are a few things you will need to do first to get this working in your local environment.
    
    a. Install PRAW using `pip install praw`

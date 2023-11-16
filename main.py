@@ -22,23 +22,31 @@ from prawcore import OAuthException
 
 # ************************************************* GLOBAL CONSTANTS ************************************************* #
 
+# FIXME maybe move all of the parser setup and globals into their own files, which means we'll need a main function
 parser = argparse.ArgumentParser()
-parser.add_argument("-d", "--debug", help="Test Mode")
+parser.add_argument("-de",
+                    "--debug",
+                    help="Debug Mode, the parameter entered will be the subreddit that is used.")
+parser.add_argument("-d",
+                    "--day",
+                    help="Previous day will be the parameter entered.",
+                    choices=range(1, 32),
+                    default=0,
+                    type=int)
 args = parser.parse_args()
 
-BOT_NAME = "CookingStatsBot"
-REDDIT = praw.Reddit(BOT_NAME, user_agent="r/Cooking Stats Bot by u/96dpi")
-
-if args.debug:
-    SUB = args.debug
-    NUM_OF_POSTS_TO_SCAN = 10
-    SLEEP_TIME_SECONDS = 5
-else:
+if args.debug is None:
     SUB = "Cooking"
     NUM_OF_POSTS_TO_SCAN = 1000  # this will include stickied posts, which we are skipping
     HOURS = 6
     SLEEP_TIME_SECONDS = int(HOURS * 60 * 60)
+else:
+    SUB = args.debug
+    NUM_OF_POSTS_TO_SCAN = 10
+    SLEEP_TIME_SECONDS = 5
 
+BOT_NAME = "CookingStatsBot"
+REDDIT = praw.Reddit(BOT_NAME, user_agent="r/Cooking Stats Bot by u/96dpi")
 SUBREDDIT = REDDIT.subreddit(SUB)
 MONTHS = [['December', ''], ['January', ''], ['February', ''], ['March', ''], ['April', ''], ['May', ''], ['June', ''],
           ['July', ''], ['August', ''], ['September', ''], ['October', ''], ['November', ''], None]
@@ -48,13 +56,10 @@ TOTAL_COMMENTS_IDX = 1
 AVG_SCORE_IDX = 1
 TOTAL_SCORE_IDX = 2
 NEG_COMMENTS_IDX = 3
-
 # ************************************************* GLOBAL VARIABLES ************************************************* #
 start_seconds = 0
 end_seconds = 0
-previous_day = 0
-
-
+previous_day = args.day
 # ************************************************* GLOBAL FUNCTIONS ************************************************* #
 
 
@@ -74,34 +79,24 @@ def edit_flair() -> bool:
     """
     is_new_month = previous_day > int(datetime.datetime.today().day)
     totals_arr = get_totals_array(obj)  # FIXME passing obj here is confusing
-    ratio_arr = []  # TODO put the ratio_arr part in its own getter function
-
-    """
-    Calculate the top 1% of the number of users in totals_arr and starting with totals_arr sorted by most comments, 
-    append each user to ratio_arr, which gives us a list of the most helpful users (see bugs section) ratio_arr is 
-    in the format: [[(string) username, (int) average score]]
-    """
-    top_1_percent = math.ceil(len(totals_arr) * 0.01)  # ceil ensures we always have at least 1 entry in the list
-    for i in range(0, top_1_percent):
-        if totals_arr[i][NEG_COMMENTS_IDX] == 0:  # skip those with a negative top-level comment
-            ratio_arr.append([totals_arr[i][NAME_IDX],
-                              round((totals_arr[i][TOTAL_SCORE_IDX]) / (totals_arr[i][TOTAL_COMMENTS_IDX]), 2)])
-
-    ratio_arr.sort(reverse=True, key=lambda x: x[AVG_SCORE_IDX])
+    ratios_arr = get_ratios_array(totals_arr)
 
     if is_new_month:
         prev_month = int(datetime.datetime.today().month) - 1
         set_flair_template_ids()
-        if args.debug:
-            print("Deleting all flair")
-        else:
-            # this deletes the flair for all users of a subreddit!
-            pass  # SUBREDDIT.flair.delete_all()
-        for i in range(0, len(ratio_arr)):
-            print("Flair set for " + ratio_arr[i][NAME_IDX] + " with template " + str(MONTHS[prev_month][FLAIR_TEMPLATE_ID_IDX]))
-            # SUBREDDIT.flair.set(ratio_arr[i][NAME_IDX], flair_template_id=MONTHS[prev_month][FLAIR_TEMPLATE_ID_IDX])
 
-    edit_wiki(ratio_arr, is_new_month)
+        if args.debug is None:
+            # this deletes the flair for all users of a subreddit!
+            SUBREDDIT.flair.delete_all()
+            for i in range(0, len(ratios_arr)):
+                SUBREDDIT.flair.set(ratios_arr[i][NAME_IDX],
+                                    flair_template_id=MONTHS[prev_month][FLAIR_TEMPLATE_ID_IDX])
+        else:
+            for i in range(0, len(ratios_arr)):
+                print("Flair set for " + ratios_arr[i][NAME_IDX] + " with template " +
+                      str(MONTHS[prev_month][FLAIR_TEMPLATE_ID_IDX]))
+
+    edit_wiki(ratios_arr, is_new_month)
     return is_new_month
 
 
@@ -144,6 +139,24 @@ def get_totals_array(users_obj) -> list:
     return totals_arr
 
 
+def get_ratios_array(totals_arr) -> list:
+    """
+    Calculate the top 1% of the number of users in totals_arr and starting with totals_arr sorted by most comments,
+    append each user to ratio_arr, which gives us a list of the most helpful users (see bugs section) ratio_arr is
+    in the format: [[(string) username, (int) average score]]
+    """
+    ratio_arr = []
+    top_1_percent = math.ceil(len(totals_arr) * 0.01)  # ceil ensures we always have at least 1 entry in the list
+    for i in range(0, top_1_percent):
+        if totals_arr[i][NEG_COMMENTS_IDX] == 0:  # skip those with a negative top-level comment
+            ratio_arr.append([totals_arr[i][NAME_IDX],
+                              round((totals_arr[i][TOTAL_SCORE_IDX]) / (totals_arr[i][TOTAL_COMMENTS_IDX]), 2)])
+
+    ratio_arr.sort(reverse=True, key=lambda x: x[AVG_SCORE_IDX])
+
+    return ratio_arr
+
+
 def set_flair_template_ids():
     missing_months = 0
 
@@ -168,7 +181,6 @@ def set_flair_template_ids():
 
 
 def edit_wiki(ratio_arr, new_month):
-
     ####################################################################################################################
     # We edit the wiki upon two conditions:
     #
@@ -178,14 +190,14 @@ def edit_wiki(ratio_arr, new_month):
     # This will accept Markdown syntax and the Reddit wiki pages will create a TOC based on the tags used. This may be
     # helpful for future needs.
     ####################################################################################################################
-
+    # TODO need to be able to see the entire totals array somehow. Export to a website, or the wiki pages?
     if new_month:
         month_string = MONTHS[int(datetime.datetime.today().month) - 1][NAME_IDX]
         reason_string = month_string + "'s Top 1% update"
         wiki_content = ("Top 1% Most Helpful Users of " + month_string)
 
         for i in range(0, len(ratio_arr)):
-            wiki_content += ("\n\n" + str(i+1) + ". " + ratio_arr[i][0] +
+            wiki_content += ("\n\n" + str(i + 1) + ". " + ratio_arr[i][0] +
                              " [ average score: " + str(ratio_arr[i][1]) + " ]")
 
         # this will add a new revision to an existing page, or create the page if it doesn't exist
@@ -197,7 +209,7 @@ def edit_wiki(ratio_arr, new_month):
         wiki_content = "Last updated (UTC): " + str(datetime.datetime.utcnow())
         reason_string = "6-hour-update"
         for i in range(0, len(ratio_arr)):
-            wiki_content += ("\n\n" + str(i+1) + ". " + ratio_arr[i][0] +
+            wiki_content += ("\n\n" + str(i + 1) + ". " + ratio_arr[i][0] +
                              " [ average score: " + str(ratio_arr[i][1]) + " ]")
         if args.debug:
             pass  # SUBREDDIT.wiki[BOT_NAME + "/" + reason_string].edit(content=wiki_content, reason=reason_string)
@@ -259,6 +271,7 @@ def sys_exit():
 
 # **************************************************** MAIN LOOP ***************************************************** #
 try:
+    # TODO track when the program starts so that we can tell if the Docker container is restarting
     try:
         print("Logged in as:", REDDIT.user.me())
     except OAuthException:
@@ -270,7 +283,7 @@ try:
         print("Mod invite accepted from r/" + SUB + ", starting main program.")
     except RedditAPIException:
         print("No pending mod invites from r/" + SUB + ". Assuming the account u/" + BOT_NAME + " is already a mod with"
-              " flair and wiki permissions, starting main program.")
+                                                                                                " flair and wiki permissions, starting main program.")
 
     total_comments = 0
     last_total_comments = 0

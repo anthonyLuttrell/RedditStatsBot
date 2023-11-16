@@ -29,8 +29,12 @@ HOURS = 6
 SLEEP_TIME_SECONDS = int(HOURS * 60 * 60)
 MONTHS = [['December', ''], ['January', ''], ['February', ''], ['March', ''], ['April', ''], ['May', ''], ['June', ''],
           ['July', ''], ['August', ''], ['September', ''], ['October', ''], ['November', ''], None]
-MONTH_NAME_INDEX = 0
-FLAIR_TEMPLATE_ID_INDEX = 1
+NAME_IDX = 0
+FLAIR_TEMPLATE_ID_IDX = 1
+TOTAL_COMMENTS_IDX = 1
+AVG_SCORE_IDX = 1
+TOTAL_SCORE_IDX = 2
+NEG_COMMENTS_IDX = 3
 
 # ************************************************* GLOBAL VARIABLES ************************************************* #
 start_seconds = 0
@@ -64,7 +68,7 @@ def edit_flair():
                 total_user_negatives += 1
         totals_arr.append([str(user), int(total_user_comments), int(total_user_score), int(total_user_negatives)])
 
-    totals_arr.sort(reverse=True, key=lambda x: x[1])  # index 1 sorts by average score
+    totals_arr.sort(reverse=True, key=lambda x: x[TOTAL_COMMENTS_IDX])
 
     """
     Calculate the top 1% of the number of users in totals_arr and starting with totals_arr sorted by most comments, 
@@ -73,10 +77,11 @@ def edit_flair():
     """
     top_1_percent = math.ceil(len(totals_arr) * 0.01)  # ceil ensures we always have at least 1 entry in the list
     for i in range(0, top_1_percent):
-        if totals_arr[i][3] == 0:  # skip those with a negative top-level comment
-            ratio_arr.append([totals_arr[i][0], round((totals_arr[i][2]) / (totals_arr[i][1]), 2)])
+        if totals_arr[i][NEG_COMMENTS_IDX] == 0:  # skip those with a negative top-level comment
+            ratio_arr.append([totals_arr[i][NAME_IDX],
+                              round((totals_arr[i][TOTAL_SCORE_IDX]) / (totals_arr[i][TOTAL_COMMENTS_IDX]), 2)])
 
-    ratio_arr.sort(reverse=True, key=lambda x: x[1])  # index 1 sorts by average score
+    ratio_arr.sort(reverse=True, key=lambda x: x[AVG_SCORE_IDX])
 
     if is_new_month:
         prev_month = int(datetime.datetime.today().month) - 1
@@ -84,7 +89,7 @@ def edit_flair():
         """MAKE SURE TO COMMENT OUT THESE LINES WHEN DEBUGGING!!!"""
         SUBREDDIT.flair.delete_all()  # you may or may not want to delete the flair for all users of a subreddit!
         for i in range(0, len(ratio_arr)):
-            SUBREDDIT.flair.set(ratio_arr[i][0], flair_template_id=MONTHS[prev_month][FLAIR_TEMPLATE_ID_INDEX])
+            SUBREDDIT.flair.set(ratio_arr[i][NAME_IDX], flair_template_id=MONTHS[prev_month][FLAIR_TEMPLATE_ID_IDX])
 
     edit_wiki(ratio_arr, is_new_month)
     return is_new_month
@@ -98,8 +103,8 @@ def get_flair_template_ids():
             break
         found = False
         for template in SUBREDDIT.flair.templates:
-            if month[MONTH_NAME_INDEX] in template["text"]:
-                month[FLAIR_TEMPLATE_ID_INDEX] = template["id"]
+            if month[NAME_IDX] in template["text"]:
+                month[FLAIR_TEMPLATE_ID_IDX] = template["id"]
                 found = True
                 break
 
@@ -126,7 +131,7 @@ def edit_wiki(ratio_arr, new_month):
     ####################################################################################################################
 
     if new_month:
-        month_string = MONTHS[int(datetime.datetime.today().month) - 1][MONTH_NAME_INDEX]
+        month_string = MONTHS[int(datetime.datetime.today().month) - 1][NAME_IDX]
         reason_string = month_string + "'s Top 1% update"
         wiki_content = ("Top 1% Most Helpful Users of " + month_string)
 

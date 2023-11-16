@@ -1,10 +1,11 @@
+import argparse
 import datetime
+import json
 import math
 import os
+import praw
 import sys
 import time
-import json
-import praw
 from praw.exceptions import RedditAPIException
 from prawcore import OAuthException
 
@@ -20,13 +21,25 @@ from prawcore import OAuthException
 # FIXME I do not believe we are handling KeyboardInterrupt correctly when stopping a Docker container
 
 # ************************************************* GLOBAL CONSTANTS ************************************************* #
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-d", "--debug", help="Test Mode")
+args = parser.parse_args()
+
 BOT_NAME = "CookingStatsBot"
 REDDIT = praw.Reddit(BOT_NAME, user_agent="r/Cooking Stats Bot by u/96dpi")
-SUB = "Cooking"
+
+if args.debug:
+    SUB = args.debug
+    NUM_OF_POSTS_TO_SCAN = 10
+    SLEEP_TIME_SECONDS = 5
+else:
+    SUB = "Cooking"
+    NUM_OF_POSTS_TO_SCAN = 1000  # this will include stickied posts, which we are skipping
+    HOURS = 6
+    SLEEP_TIME_SECONDS = int(HOURS * 60 * 60)
+
 SUBREDDIT = REDDIT.subreddit(SUB)
-NUM_OF_POSTS_TO_SCAN = 1000  # this will include stickied posts, which we are skipping
-HOURS = 6
-SLEEP_TIME_SECONDS = int(HOURS * 60 * 60)
 MONTHS = [['December', ''], ['January', ''], ['February', ''], ['March', ''], ['April', ''], ['May', ''], ['June', ''],
           ['July', ''], ['August', ''], ['September', ''], ['October', ''], ['November', ''], None]
 NAME_IDX = 0
@@ -42,33 +55,26 @@ end_seconds = 0
 previous_day = 0
 
 
-# ************************************************* GLOBAL CONSTANTS ************************************************* #
-def edit_flair():
-    # only true on the first iteration on the 1st day of the month
-    is_new_month = (int(datetime.datetime.today().day) - previous_day) < 0
+# ************************************************* GLOBAL FUNCTIONS ************************************************* #
 
-    totals_arr = []
-    ratio_arr = []
 
+def edit_flair() -> bool:
+    """Deletes and sets user flair, then updates the wiki pages.
+
+    We determine when it is a new month when the previous_day is greater than
+    today's day (when 31 rolls back to 1).
+
+    If it is a new month, we delete all current user flair across the entire
+    subreddit, then set the new flair based on the results from the most recent
+    iteration. We then update the wiki pages.
+
+    :return: is_new_month:
+                A bool that is true after the first iteration of the main loop
+                on the first day of the month.
     """
-    Build an array in this format:
-    
-        [ [(string) Username, (int) Total Comments, (int) Total Score, (int) Total Negative Comments] ]
-    
-    I am currently not doing anything useful with the total comments and total score besides calculating the average
-    """
-    for user in obj["users"]:
-        total_user_comments = 0
-        total_user_score = 0
-        total_user_negatives = 0
-        for score in obj["users"][user]["commentScore"]:
-            total_user_comments += 1
-            total_user_score += score
-            if score < 0:
-                total_user_negatives += 1
-        totals_arr.append([str(user), int(total_user_comments), int(total_user_score), int(total_user_negatives)])
-
-    totals_arr.sort(reverse=True, key=lambda x: x[TOTAL_COMMENTS_IDX])
+    is_new_month = previous_day > int(datetime.datetime.today().day)
+    totals_arr = get_totals_array(obj)  # FIXME passing obj here is confusing
+    ratio_arr = []  # TODO put the ratio_arr part in its own getter function
 
     """
     Calculate the top 1% of the number of users in totals_arr and starting with totals_arr sorted by most comments, 
@@ -85,17 +91,60 @@ def edit_flair():
 
     if is_new_month:
         prev_month = int(datetime.datetime.today().month) - 1
-        get_flair_template_ids()
-        """MAKE SURE TO COMMENT OUT THESE LINES WHEN DEBUGGING!!!"""
-        SUBREDDIT.flair.delete_all()  # you may or may not want to delete the flair for all users of a subreddit!
+        set_flair_template_ids()
+        if args.debug:
+            print("Deleting all flair")
+        else:
+            # this deletes the flair for all users of a subreddit!
+            pass  # SUBREDDIT.flair.delete_all()
         for i in range(0, len(ratio_arr)):
-            SUBREDDIT.flair.set(ratio_arr[i][NAME_IDX], flair_template_id=MONTHS[prev_month][FLAIR_TEMPLATE_ID_IDX])
+            print("Flair set for " + ratio_arr[i][NAME_IDX] + " with template " + str(MONTHS[prev_month][FLAIR_TEMPLATE_ID_IDX]))
+            # SUBREDDIT.flair.set(ratio_arr[i][NAME_IDX], flair_template_id=MONTHS[prev_month][FLAIR_TEMPLATE_ID_IDX])
 
     edit_wiki(ratio_arr, is_new_month)
     return is_new_month
 
 
-def get_flair_template_ids():
+def get_totals_array(users_obj) -> list:
+    """Builds and sorts the totals array.
+
+    Loop through the users_obj, adding up the total number of comments, the
+    total score, and the total number of comments with a negative score.
+
+    For example:
+        [["bob",31,278,0],["jane",12,773,2]]
+
+    Not currently not doing anything useful with the total comments and total
+    score besides calculating the average. There is more potential here.
+
+    :arg users_obj:
+            A key-value pair object that contains the user ID, and each comment
+            ID and comment score.
+
+    :return totals_arr:
+                A list of lists, each sublist consists of the username, that
+                user's total number of comments, total score, and total number
+                of negative comments. This list is reverse-sorted by the total
+                number of comments before it is returned.
+    """
+    totals_arr = []
+    for user in users_obj["users"]:
+        total_user_comments = 0
+        total_user_score = 0
+        total_user_negatives = 0
+        for score in users_obj["users"][user]["commentScore"]:
+            total_user_comments += 1
+            total_user_score += score
+            if score < 0:
+                total_user_negatives += 1
+        totals_arr.append([str(user), int(total_user_comments), int(total_user_score), int(total_user_negatives)])
+
+    totals_arr.sort(reverse=True, key=lambda x: x[TOTAL_COMMENTS_IDX])
+
+    return totals_arr
+
+
+def set_flair_template_ids():
     missing_months = 0
 
     for month in MONTHS:
@@ -140,14 +189,20 @@ def edit_wiki(ratio_arr, new_month):
                              " [ average score: " + str(ratio_arr[i][1]) + " ]")
 
         # this will add a new revision to an existing page, or create the page if it doesn't exist
-        SUBREDDIT.wiki[BOT_NAME].edit(content=wiki_content, reason=reason_string)
+        if args.debug:
+            pass  # SUBREDDIT.wiki[BOT_NAME].edit(content=wiki_content, reason=reason_string)
+        else:
+            print("Edit main wiki")
     else:
         wiki_content = "Last updated (UTC): " + str(datetime.datetime.utcnow())
         reason_string = "6-hour-update"
         for i in range(0, len(ratio_arr)):
             wiki_content += ("\n\n" + str(i+1) + ". " + ratio_arr[i][0] +
                              " [ average score: " + str(ratio_arr[i][1]) + " ]")
-        SUBREDDIT.wiki[BOT_NAME + "/" + reason_string].edit(content=wiki_content, reason=reason_string)
+        if args.debug:
+            pass  # SUBREDDIT.wiki[BOT_NAME + "/" + reason_string].edit(content=wiki_content, reason=reason_string)
+        else:
+            print("Edit 6-hour-update wiki")
 
 
 def user_exists(user_id_to_check):

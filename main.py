@@ -270,6 +270,45 @@ def sys_exit():
 
 
 # **************************************************** MAIN LOOP ***************************************************** #
+# TODO there should be a scanner base class, and each instance extends the main class with its own set of unique vars
+#  and methods, if needed. We will use the Round Robin algorithm with time slicing to allow each task to run for up to
+#  its time slice. If it finishes early, the next task will resume. If it doesn't finish, it will be paused and added to
+#  the back of the queue to be resumed when all successive scanners have finished. The time slice is determined by 24
+#  (hours in a day) divided by the number scanners. Each scanner will have an equal amount of time to complete its task.
+#  The time slice can also be dynamic, so that it is adjusted to always be equal to the longest amount of time it takes
+#  for any scanner to finish.
+#
+#  Time Slicing example (24 hours / 6 scanners = 4 hour time slices):
+#       Task
+#  Hours   [01][02][03][04][05][06][07][08][09][10][11][12][13][14][15][16][17][18][19][20][21][22][23][24]
+#       S1 |--------------|
+#       S2                 |--------------|
+#       S3                                 |--------------|
+#       S4                                                 |--------------|
+#       S5                                                                 |--------------|
+#       S6                                                                                 |--------------|
+#
+#
+#  Task completion example (x = task finished, * = task not finished):
+#       Task
+#  Hours    [01][02][03][04][05][06][07][08][09][10][11][12][13][14][15][16][17][18][19][20][21][22][23][24]
+#       S1: |----|xxxxxxxxx|                                      |-----|xxxxxxxx|
+#       S2:      |-----------|xx|                                       |----------|xxx|
+#       S3:                  |--------------*            *--------|                |--------------*
+#       S4:                                 |-------|xxxxxx|                                      |-------|x
+#       S5:                                         |--|xxxxxxxxxxx|
+#       S6:                                            |-|xxxxxxxxxxxx|
+#
+#  Queue example:
+#       S1: [S1, S2, S3, S4, S5, S6] (S1 runs)
+#       S2:      [S2, S3, S4, S5, S6] (S1 finishes, is removed from the queue, S2 runs)
+#       S3:                  [S3, S4, S5, S6] (S2 finishes, is removed from the queue, S3 runs)
+#       S4:                                 [S4, S5, S6, S3] (S3 does not finish, is added to the back of the queue, S4 runs)
+#       S5:                                         [S5, S6, S3] (S4 finishes, is removed from the queue, S5 runs)
+#       S6:                                            [S6, S3] (S5 finishes, is removed from the queue, S6 runs)
+#       S3:                                              [S3, S1, S2, S3, S4, S5, S6] (S6 finishes, is removed from the queue, S3 is the last item in the queue so the queue is appended with all scanners in order, S3 runs)
+#       S1:                                                       [S1, S2, S3, S4, S5, S6] (S3 finishes, is removed from the queue, S1 runs)
+
 try:
     # TODO track when the program starts so that we can tell if the Docker container is restarting
     try:

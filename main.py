@@ -9,20 +9,7 @@ import time
 from praw.exceptions import RedditAPIException
 from prawcore import OAuthException
 
-# ******************************************************* BUGS ******************************************************* #
-# FIXME when the total_arr length is less than 150 and we sort by total_comments, if there is a tie for total_comments
-#       (at least 2 users with the same number of comments), the successive users can have a higher total score than the
-#       first user. Example: [["bob", 2, 12, 0],["joe", 2, 23, 0],["john", 2, 45, 0],["jill", 1, 15, 0]]
-#       In this case, "bob" would be the Top 1% most helpful, but it should actually be "john"
-#
-# FIXME the print statements that start with "\r" and end with end="" do not behave the same in the docker logs as they
-#       do in the terminal. They should overwrite the existing line in the docker log.
-#
-# FIXME I do not believe we are handling KeyboardInterrupt correctly when stopping a Docker container
-
 # ************************************************* GLOBAL CONSTANTS ************************************************* #
-
-# FIXME maybe move all of the parser setup and globals into their own files, which means we'll need a main function
 parser = argparse.ArgumentParser()
 parser.add_argument("-de",
                     "--debug",
@@ -190,7 +177,7 @@ def edit_wiki(ratio_arr, new_month):
     # This will accept Markdown syntax and the Reddit wiki pages will create a TOC based on the tags used. This may be
     # helpful for future needs.
     ####################################################################################################################
-    # TODO need to be able to see the entire totals array somehow. Export to a website, or the wiki pages?
+
     if new_month:
         month_string = MONTHS[int(datetime.datetime.today().month) - 1][NAME_IDX]
         reason_string = month_string + "'s Top 1% update"
@@ -272,7 +259,6 @@ def sys_exit():
 # **************************************************** MAIN LOOP ***************************************************** #
 
 try:
-    # TODO track when the program starts so that we can tell if the Docker container is restarting
     try:
         print("Logged in as:", REDDIT.user.me())
     except OAuthException:

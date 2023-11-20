@@ -302,12 +302,10 @@ def user_exists(user_id_to_check: str) -> bool:
     Returns:
         True if a user with the given ID exists, False otherwise.
     """
-    found = False
     for user in obj["users"]:
         if user_id_to_check == user:
-            found = True
-            break
-    return found
+            return True
+    return False
 
 
 def update_existing(comment_to_update) -> None:

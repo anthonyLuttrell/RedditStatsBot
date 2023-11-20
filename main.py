@@ -341,6 +341,19 @@ def update_existing(comment_to_update) -> None:
 
 
 def add_new(comment_to_add):
+    """
+    Add a new comment to the 'obj' dictionary.
+
+    The function creates a new entry in the 'users' dictionary with the author's username as the key.
+    The 'commentId' list is initialized with the ID of the given comment, and the 'commentScore' list is initialized
+    with the score of the given comment.
+
+    Args:
+        comment_to_add: The comment object to add.
+
+    Returns:
+        None.
+    """
     obj["users"][str(comment_to_add.author)] = {
         "commentId": [comment_to_add.id],
         "commentScore": [comment_to_add.score],
@@ -432,7 +445,9 @@ if __name__ == "__main__":
 
                 end_seconds = time.perf_counter()
                 time_elapsed += (end_seconds - start_seconds) / 60
-                print("\nTime elapsed: " + str(datetime.timedelta(minutes=time_elapsed)))
+                print(
+                    "\nTime elapsed: " + str(datetime.timedelta(minutes=time_elapsed))
+                )
 
                 if edit_flair():
                     # clear out the comment log at the beginning of each month

@@ -3,6 +3,7 @@ import json
 import math
 import os
 import sys
+import threading
 import time
 from queue import Queue
 from typing import Any
@@ -11,8 +12,22 @@ from Scanner import Scanner
 from args import get_args
 
 # ************************************************* GLOBAL CONSTANTS ************************************************* #
-MONTHS = [['December', ''], ['January', ''], ['February', ''], ['March', ''], ['April', ''], ['May', ''], ['June', ''],
-          ['July', ''], ['August', ''], ['September', ''], ['October', ''], ['November', ''], None]
+MONTHS = [
+    ['December', ''],
+    ['January', ''],
+    ['February', ''],
+    ['March', ''],
+    ['April', ''],
+    ['May', ''],
+    ['June', ''],
+    ['July', ''],
+    ['August', ''],
+    ['September', ''],
+    ['October', ''],
+    ['November', ''],
+    None]  # we get the previous month by subtracting 1, so December must be before January.
+
+RUN_TIME = []
 ARGS = get_args()
 Q_MAX_SIZE = 20
 NAME_IDX = 0
@@ -22,6 +37,18 @@ AVG_SCORE_IDX = 1
 TOTAL_SCORE_IDX = 2
 NEG_COMMENTS_IDX = 3
 NUM_POSTS_TO_SCAN = ARGS.posts
+scanner_queue = Queue(maxsize=Q_MAX_SIZE)
+
+alphabet_scanner = Scanner("alphabetbot",
+                           "CookingStatsBot",
+                           ARGS.posts,
+                           30)
+cooking_scanner = Scanner("Cooking",
+                          "CookingStatsBot",
+                          ARGS.posts,
+                          30)
+
+scanner_list = [alphabet_scanner, cooking_scanner]
 
 
 def edit_flair(obj, scanner) -> bool:
@@ -175,7 +202,8 @@ def edit_wiki(ratio_arr, new_month, scanner):
             wiki_content += ("\n\n" + str(i + 1) + ". " + ratio_arr[i][0] +
                              " [ average score: " + str(ratio_arr[i][1]) + " ]")
         if ARGS.debug is None:
-            scanner.sub_instance.wiki[scanner.bot_name + "/" + reason_string].edit(content=wiki_content, reason=reason_string)
+            scanner.sub_instance.wiki[scanner.bot_name + "/" + reason_string].edit(content=wiki_content,
+                                                                                   reason=reason_string)
         else:
             print("Wiki destination: " + scanner.bot_name + "/" + reason_string)
             print(wiki_content)
@@ -215,14 +243,14 @@ def add_new(obj, comment_to_add):
 
 
 def sleep(scanner):
-    sleep_time = time.strftime("%H:%M:%S")
+    sleep_string = time.strftime("%H:%M:%S")
     # including this as a workaround for the Docker logs, remove when fixed
     # print("Sleeping since " + sleep_time + ", waking up in " + str(scanner.get_time_slice()) + " hours.")
-
-    for i in range(0, scanner.sleep_seconds):
-        # FIXME this does not print in Docker logs
-        print("\r", "Sleeping since " + sleep_time + ", waking up in " +
-              str(scanner.sleep_seconds - i).rjust(5, "0") + " sec", end="")
+    sleep_time_seconds = round(scanner.sleep_seconds - (get_avg_runtime_minutes() * 60))
+    for i in range(0, sleep_time_seconds):
+        # FIXME this does not print in Docker logs. Just replace it with time.sleep(sleep_time_seconds) if needed
+        print("\r", "Sleeping since " + sleep_string + ", waking up in " +
+              str(sleep_time_seconds - i).rjust(5, "0") + " sec", end="")
         time.sleep(1)
 
 
@@ -235,61 +263,33 @@ def sys_exit():
 
 def create_file(file_name):
     # create the files if they don't exist
-    with open(file_name, "a") as f:
-        try:
-            if os.path.getsize(file_name) == 0:
+    try:
+        if os.path.isfile(file_name):
+            print(file_name + " already exists")
+        else:
+            with open(file_name, "a") as f:
                 f.write("{\"users\":{}}")
                 print(file_name + " was created")
-            else:
-                print(file_name + " already exists")
-        except OSError:
-            print("Unable to create new file, terminating program")
-            sys_exit()
+    except OSError:
+        print("Unable to create new file, terminating program")
+        sys_exit()
 
 
-def get_scanner_queue() -> Queue[Any]:
-    """Add new scanners here.
-
-    Scanners are appended to a queue where they are used in a Round Robin loop.
-
-    Returns:
-        A Queue object that holds a scanner for each subreddit
-
-    """
-    # https://docs.python.org/3/library/queue.html
-    q = Queue(maxsize=Q_MAX_SIZE)
-
-    testing_scanner = Scanner("alphabetbot",
-                              "CookingStatsBot",
-                              ARGS.posts,
-                              10)
-
-    cooking_scanner = Scanner("Cooking",
-                              "CookingStatsBot",
-                              ARGS.posts,
-                              10)
-
-    q.put(testing_scanner)
-    q.put(cooking_scanner)
-
-    return q
+def fill_scanner_queue():
+    for scanner in scanner_list:
+        scanner_queue.put(scanner)
 
 
-def main():
-    scanner_queue = get_scanner_queue()
+def scanner_worker():
 
-    if ARGS.debug:
-        print("\n  --- Debug flag is set! ---  \n")
+    while True:
+        minutes_elapsed = 0
+        total_posts = 0
+        total_comments = 0
+        scanner = scanner_queue.get()
+        print(f"\nWorking on {scanner}, for {scanner.sub_name}")
 
-    try:
-        while scanner_queue.not_empty:
-            start_seconds = 0
-            end_seconds = 0
-            time_elapsed = 0
-            total_posts = 0
-            total_comments = 0
-
-            scanner = scanner_queue.get()
+        try:
             file_name = scanner.sub_name + ".json"
             create_file(file_name)
 
@@ -299,32 +299,33 @@ def main():
 
                 for submission in scanner.sub_instance.hot(limit=scanner.num_posts_to_scan):
 
+                    # scan each post from the top down when sorted by "hot"
                     if submission.stickied is False:
                         total_posts += 1
                         submission.comments.replace_more(limit=0)
+
                         for comment in submission.comments:
+                            # scan each top-level comment
                             if not comment.distinguished:
                                 user_id = str(comment.author)
                                 total_comments += 1
                                 # FIXME this does not print in Docker logs
-                                print("\r", "Began scanning submission ID " + str(submission.id) + " at " +
-                                      time.strftime("%H:%M:%S") + ", total Comments Scanned: " +
+                                print("\r", "Began scanning submission ID " + str(submission.id) +
+                                      ", total Comments Scanned: " +
                                       str(total_comments), end="")
                                 if user_id != "None":
                                     if user_exists(obj, user_id):
                                         update_existing(obj, comment, user_id)
                                     else:
                                         add_new(obj, comment)
-
                             time.sleep(0.1)  # avoids HTTP 429 errors
+
                     time.sleep(0.1)  # avoids HTTP 429 errors
 
-            end_seconds = time.perf_counter()
-            time_elapsed += (end_seconds - start_seconds)
-            if time_elapsed > scanner.time_slice:
-                # update each Scanner's time slice so it is always the maximum
-                scanner.time_slice = time_elapsed
-            print("\nTime elapsed: " + str(datetime.timedelta(minutes=(time_elapsed / 60))))
+                # DONE scanning
+            minutes_elapsed += (time.perf_counter() - start_seconds) / 60
+            update_avg_runtime(minutes_elapsed)
+            print("\nTime elapsed: " + str(datetime.timedelta(minutes=minutes_elapsed)))
 
             if edit_flair(obj, scanner):
                 # clear out the comment log at the beginning of each month
@@ -334,23 +335,53 @@ def main():
                 with open(scanner.sub_name + ".json", "w") as f:
                     f.seek(0)
                     json.dump(obj, f, indent=2)
-                sleep(scanner)
                 scanner.previous_day = datetime.datetime.today().day
             except FileNotFoundError:
                 print("File Not Found, exiting.")
                 sys_exit()
 
-    except KeyboardInterrupt:
-        # catches Ctrl+C and IDE program interruption to ensure we write to the json file
-        try:
-            print("\n-- Process halted, dumping JSON file --")
-            for scanner in scanner_queue:
+        except (KeyboardInterrupt, SystemExit):
+            # catches Ctrl+C and IDE program interruption to ensure we write to the json file
+            # FIXME using threads here is causing more complications. When stopping the program now, KeyboardInterrupt
+            #  is not caught here, so we do not close out the json file like we should. There does not appear to be an
+            #  easy fix for this. Though, switching to a database instead of local files will make this meaningless.
+            try:
+                print("\n-- Process halted, dumping JSON file --")
+                # highly unlikely that this scanner will be referenced before it is assigned
                 with open(scanner.sub_name + ".json", "w") as f:
                     f.seek(0)
                     json.dump(obj, f, indent=2)
-        except NameError:
+            except NameError:
+                sys_exit()
             sys_exit()
-        sys_exit()
+
+        print(f"Finished working on {scanner}, for {scanner.sub_name}")
+        sleep(scanner)
+
+        # ensures the queue is never empty
+        scanner_queue.put(scanner)
+
+        scanner_queue.task_done()
+
+
+def update_avg_runtime(minutes):
+    RUN_TIME.append(minutes)
+
+
+def get_avg_runtime_minutes():
+    return 0 if len(RUN_TIME) == 0 else sum(RUN_TIME) / len(RUN_TIME)
+
+
+def main():
+    fill_scanner_queue()
+
+    # daemon=True here means the worker thread will stop to run even when the queue is empty
+    threading.Thread(target=scanner_worker, daemon=True).start()
+
+    # Blocks succeeding code until all items in the Queue have been gotten (removed) and marked with task_done
+    scanner_queue.join()
+
+    print(time.strftime("%H:%M:%S"), "Something went wrong, the queue was empty when it should not have been. Exiting.")
 
 
 if __name__ == "__main__":

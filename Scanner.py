@@ -18,7 +18,6 @@ def sys_exit():
 
 
 class Scanner:
-    time_slice = 1
     previous_day = get_args().day
 
     def __init__(self, sub_name: str, bot_name: str, num_posts_to_scan: int, sleep_seconds: int):
@@ -28,6 +27,8 @@ class Scanner:
         self.bot_name = bot_name
         self.sub_instance = self.get_subreddit_instance()
         self.is_mod = self.check_mod_invite()
+        self.submissions = {}
+        self.comments_in_submission = {}
 
     def log_in(self):
         return praw.Reddit(self.bot_name, user_agent="r/Cooking Stats Bot by u/96dpi")
@@ -50,10 +51,3 @@ class Scanner:
             print("No pending mod invites from r/" + self.sub_name +
                   ". Assuming the account u/" + self.bot_name +
                   " is already a mod with flair and wiki permissions, starting main program...")
-
-    def get_time_slice(self):
-        return self.time_slice
-
-    def set_time_slice(self, new_time_slice):
-        self.time_slice = new_time_slice
-

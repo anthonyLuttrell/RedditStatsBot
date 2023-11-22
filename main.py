@@ -71,8 +71,7 @@ previous_day = args.day
 
 # ************************************************* GLOBAL FUNCTIONS ************************************************* #
 def edit_flair() -> bool:
-    """
-    Deletes and sets user flair, then updates the wiki pages.
+    """Deletes and sets user flair, then updates the wiki pages.
 
     We determine when it is a new month when the previous_day is greater than
     today's day (when 31 rolls back to 1).
@@ -115,8 +114,7 @@ def edit_flair() -> bool:
 
 
 def get_totals_array(users_obj) -> list:
-    """
-    Builds and sorts the totals array.
+    """Builds and sorts the totals array.
 
     Loop through the users_obj, adding up the total number of comments, the
     total score, and the total number of comments with a negative score.
@@ -162,7 +160,8 @@ def get_totals_array(users_obj) -> list:
 
 
 def get_ratios_array(totals_arr: list[list]) -> list[list]:
-    """
+    """ Returns most helpful users.
+
     Calculate the top 1% of the number of users in totals_arr and starting with totals_arr sorted by most comments,
     append each user to ratio_arr, which gives us a list of the most helpful users (see bugs section) ratio_arr is
     in the format: [[(string) username, (int) average score]]
@@ -198,8 +197,7 @@ def get_ratios_array(totals_arr: list[list]) -> list[list]:
 
 
 def set_flair_template_ids() -> None:
-    """
-    Counts the number of missing months
+    """Counts the number of missing months.
 
     Args:
         None
@@ -232,8 +230,7 @@ def set_flair_template_ids() -> None:
 
 
 def edit_wiki(ratio_arr: list, new_month):
-    """
-    Edit the subreddit's wiki page.
+    """Edit the subreddit's wiki page.
 
     The wiki page is edited under two conditions:
     1. After every 6-hour iteration (user flair is not edited in this case).
@@ -293,8 +290,7 @@ def edit_wiki(ratio_arr: list, new_month):
 
 # TODO: change the name of 'obj' in following fuction. Unclear from where it is coming
 def user_exists(user_id_to_check: str) -> bool:
-    """
-    Check if a user with the given ID exists in the 'obj' dictionary.
+    """Check if a user with the given ID exists in the 'obj' dictionary.
 
     Args:
         user_id_to_check: The ID of the user to check.
@@ -309,8 +305,7 @@ def user_exists(user_id_to_check: str) -> bool:
 
 
 def update_existing(comment_to_update) -> None:
-    """
-    Update commeny score if comment exist else add new comments
+    """Update commeny score if comment exist else add new comments.
 
     The function checks if the comment ID already exists in the 'commentId' list of the user.
     If the comment ID exists, the score is updated in the corresponding position of the 'commentScore' list.
@@ -341,8 +336,7 @@ def update_existing(comment_to_update) -> None:
 
 
 def add_new(comment_to_add):
-    """
-    Add a new comment to the 'obj' dictionary.
+    """Add a new comment to the 'obj' dictionary.
 
     The function creates a new entry in the 'users' dictionary with the author's username as the key.
     The 'commentId' list is initialized with the ID of the given comment, and the 'commentScore' list is initialized
@@ -380,99 +374,98 @@ def sys_exit():
 
 
 # **************************************************** MAIN LOOP ***************************************************** #
-if __name__ == "__main__":
+try:
     try:
-        try:
-            print("Logged in as:", REDDIT.user.me())
-        except OAuthException:
-            print("Unable to log in! Verify the credentials in the praw.ini file.")
-            sys_exit()
+        print("Logged in as:", REDDIT.user.me())
+    except OAuthException:
+        print("Unable to log in! Verify the credentials in the praw.ini file.")
+        sys_exit()
+
+    try:
+        SUBREDDIT.mod.accept_invite()
+        print("Mod invite accepted from r/" + SUB + ", starting main program.")
+    except RedditAPIException:
+        print(
+            "No pending mod invites from r/"
+            + SUB
+            + ". Assuming the account u/"
+            + BOT_NAME
+            + " is already a mod with"
+            " flair and wiki permissions, starting main program."
+        )
+
+    total_comments = 0
+    last_total_comments = 0
+
+    while True:
+        last_total_comments = total_comments
+        time_elapsed = 0
+        total_posts = 0
+        total_comments = 0
 
         try:
-            SUBREDDIT.mod.accept_invite()
-            print("Mod invite accepted from r/" + SUB + ", starting main program.")
-        except RedditAPIException:
+            with open("stats.json", "r+") as f:
+                obj = json.load(f)
+                start_seconds = time.perf_counter()
+
+                for submission in SUBREDDIT.hot(limit=NUM_OF_POSTS_TO_SCAN):
+                    if submission.stickied is False:
+                        total_posts += 1
+                        # FIXME this does not print in Docker logs
+                        print(
+                            "\r",
+                            "Began scanning submission ID "
+                            + str(submission.id)
+                            + " at "
+                            + time.strftime("%H:%M:%S"),
+                            end="",
+                        )
+
+                        submission.comments.replace_more(limit=0)
+                        for comment in submission.comments:
+                            if not comment.distinguished:
+                                user_id = str(comment.author)
+                                total_comments += 1
+                                # print("\r", "Total Comments Scanned: " + str(total_comments), end="")
+                                if user_id != "None":
+                                    if user_exists(user_id):
+                                        update_existing(comment)
+                                    else:
+                                        add_new(comment)
+
+                            time.sleep(0.1)  # avoids HTTP 429 errors
+                    time.sleep(0.1)  # avoids HTTP 429 errors
+
+            end_seconds = time.perf_counter()
+            time_elapsed += (end_seconds - start_seconds) / 60
             print(
-                "No pending mod invites from r/"
-                + SUB
-                + ". Assuming the account u/"
-                + BOT_NAME
-                + " is already a mod with"
-                " flair and wiki permissions, starting main program."
+                "\nTime elapsed: " + str(datetime.timedelta(minutes=time_elapsed))
             )
 
-        total_comments = 0
-        last_total_comments = 0
-
-        while True:
-            last_total_comments = total_comments
-            time_elapsed = 0
-            total_posts = 0
-            total_comments = 0
+            if edit_flair():
+                # clear out the comment log at the beginning of each month
+                obj["users"] = {}
 
             try:
-                with open("stats.json", "r+") as f:
-                    obj = json.load(f)
-                    start_seconds = time.perf_counter()
-
-                    for submission in SUBREDDIT.hot(limit=NUM_OF_POSTS_TO_SCAN):
-                        if submission.stickied is False:
-                            total_posts += 1
-                            # FIXME this does not print in Docker logs
-                            print(
-                                "\r",
-                                "Began scanning submission ID "
-                                + str(submission.id)
-                                + " at "
-                                + time.strftime("%H:%M:%S"),
-                                end="",
-                            )
-
-                            submission.comments.replace_more(limit=0)
-                            for comment in submission.comments:
-                                if not comment.distinguished:
-                                    user_id = str(comment.author)
-                                    total_comments += 1
-                                    # print("\r", "Total Comments Scanned: " + str(total_comments), end="")
-                                    if user_id != "None":
-                                        if user_exists(user_id):
-                                            update_existing(comment)
-                                        else:
-                                            add_new(comment)
-
-                                time.sleep(0.1)  # avoids HTTP 429 errors
-                        time.sleep(0.1)  # avoids HTTP 429 errors
-
-                end_seconds = time.perf_counter()
-                time_elapsed += (end_seconds - start_seconds) / 60
-                print(
-                    "\nTime elapsed: " + str(datetime.timedelta(minutes=time_elapsed))
-                )
-
-                if edit_flair():
-                    # clear out the comment log at the beginning of each month
-                    obj["users"] = {}
-
-                try:
-                    with open("stats.json", "w") as f:
-                        f.seek(0)
-                        json.dump(obj, f, indent=2)
-                    sleep()
-                    previous_day = datetime.datetime.today().day
-                except FileNotFoundError:
-                    print("File Not Found, exiting.")
-                    sys_exit()
+                with open("stats.json", "w") as f:
+                    f.seek(0)
+                    json.dump(obj, f, indent=2)
+                sleep()
+                previous_day = datetime.datetime.today().day
             except FileNotFoundError:
                 print("File Not Found, exiting.")
                 sys_exit()
-
-    except KeyboardInterrupt:
-        # catches Ctrl+C and IDE program interruption to ensure we write to the json file
-        try:
-            print("\n-- Process halted, dumping JSON file --")
-            with open("stats.json", "w") as f:
-                f.seek(0)
-                json.dump(obj, f, indent=2)
-        except NameError:
+        except FileNotFoundError:
+            print("File Not Found, exiting.")
             sys_exit()
+
+except KeyboardInterrupt:
+    # catches Ctrl+C and IDE program interruption to ensure we write to the json file
+    try:
+        print("\n-- Process halted, dumping JSON file --")
+        with open("stats.json", "w") as f:
+            f.seek(0)
+            json.dump(obj, f, indent=2)
+    except NameError:
         sys_exit()
+    sys_exit()

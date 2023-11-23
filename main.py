@@ -5,6 +5,10 @@ import os
 import sys
 import time
 
+from typing import List
+
+import praw.models
+
 from Scanner import Scanner
 from args import get_args
 
@@ -56,19 +60,22 @@ else:
     scanner_list.append(cooking_scanner)
 
 
-def edit_flair(obj: str, scanner: Scanner) -> bool:
+def edit_flair(obj, scanner: Scanner) -> bool:
     """Deletes and sets user flair, then updates the wiki pages.
 
-    We determine when it is a new month when the previous_day is greater than
-    today's day (when 31 rolls back to 1).
+    We determine when it is a new month when the previous_day is greater than today's day (when 31 rolls back to 1). If
+    it is a new month, we delete all current user flair across the entire subreddit, then set the new flair based on the
+    results from the most recent iteration. We then update the wiki.
 
-    If it is a new month, we delete all current user flair across the entire
-    subreddit, then set the new flair based on the results from the most recent
-    iteration. We then update the wiki pages.
+    Args:
+      obj:
+        A json-syntax object that contains an entry for each user, along with that user's comment IDs and scores.
+      scanner:
+        The Scanner object that we are currently working on.
 
-    :return: is_new_month:
-                A bool that is true after the first iteration of the main loop
-                on the first day of the month.
+    Returns:
+      is_new_month:
+        A bool that is true after the first iteration of the main loop on the first day of the month.
     """
     is_new_month = scanner.previous_day > int(datetime.datetime.today().day)
     totals_arr = get_totals_array(obj)
@@ -87,34 +94,35 @@ def edit_flair(obj: str, scanner: Scanner) -> bool:
         else:
             print("Debug output only, no flair has been changed")
             for i in range(0, len(ratios_arr)):
-                print("Flair updated for: " + ratios_arr[i][NAME_IDX] + " for " +
+                print("Flair updated for: " +
+                      ratios_arr[i][NAME_IDX] +
+                      " for " +
                       MONTHS[prev_month][FLAIR_TEMPLATE_ID_IDX])
 
     edit_wiki(ratios_arr, is_new_month, scanner)
     return is_new_month
 
 
-def get_totals_array(users_obj) -> list:
+def get_totals_array(users_obj) -> List[list]:
     """Builds and sorts the totals array.
 
-    Loop through the users_obj, adding up the total number of comments, the
-    total score, and the total number of comments with a negative score.
+    Loop through the users_obj, adding up the total number of comments, the total score, and the total number of
+    comments with a negative score.
 
-    For example:
-        [["bob",31,278,0],["jane",12,773,2]]
+    For example: [["bob",31,278,0],["jane",12,773,2]]
 
-    Not currently not doing anything useful with the total comments and total
-    score besides calculating the average. There is more potential here.
+    Not currently not doing anything useful with the total comments and total score besides calculating the average.
+    There is more potential here.
 
-    :arg users_obj:
-            A key-value pair object that contains the user ID, and each comment
-            ID and comment score.
+    Args:
+      users_obj:
+        A key-value pair object that contains the user ID, and each comment ID and comment score.
 
-    :return totals_arr:
-                A list of lists, each sublist consists of the username, that
-                user's total number of comments, total score, and total number
-                of negative comments. This list is reverse-sorted by the total
-                number of comments before it is returned.
+    Returns:
+      totals_arr:
+        A list of lists, each sublist consists of the username, that user's total number of comments, total score, and
+        total number of negative comments. This list is reverse-sorted by the total number of comments before it is
+        returned.
     """
     totals_arr = []
     for user in users_obj["users"]:
@@ -133,11 +141,19 @@ def get_totals_array(users_obj) -> list:
     return totals_arr
 
 
-def get_ratios_array(totals_arr) -> list:
-    """
+def get_ratios_array(totals_arr: List[list]) -> List[list]:
+    """ Returns most helpful users.
+
     Calculate the top 1% of the number of users in totals_arr and starting with totals_arr sorted by most comments,
-    append each user to ratio_arr, which gives us a list of the most helpful users (see bugs section) ratio_arr is
-    in the format: [[(string) username, (int) average score]]
+    append each user to ratio_arr, which gives us a list of the most helpful users (see bugs section) ratio_arr is in
+    the format: [[(string) username, (int) average score]]
+
+    Args:
+        totals_arr: A list of lists containing user information.
+
+    Returns:
+        A list of lists, where each inner list contains the username and average
+        score for a user.
     """
     ratio_arr = []
     top_1_percent = math.ceil(len(totals_arr) * 0.01)  # ceil ensures we always have at least 1 entry in the list
@@ -151,7 +167,20 @@ def get_ratios_array(totals_arr) -> list:
     return ratio_arr
 
 
-def set_flair_template_ids(sub_instance):
+def set_flair_template_ids(sub_instance) -> None:
+    """Assigns a user flair template ID to the corresponding month in the MONTHS list.
+
+    Each subbredit must maintain a unique user flair template that contains the matching string for each month. If we
+    don't want to include the name of the month in each flair, then this is all unnecessary. If there is no matching
+    user flair template, then no user flair will be applied.
+
+    Args:
+      sub_instance:
+        The PRAW subreddit instance to search.
+
+    Returns:
+        None.
+    """
     missing_months = 0
 
     for month in MONTHS:
@@ -168,31 +197,35 @@ def set_flair_template_ids(sub_instance):
             missing_months += 1
 
     if missing_months > 0:
-        # I'm not sure how to handle this yet. This means that the sub must maintain a unique user flair template that
-        # contains the matching string for each month. If we don't want to include the name of the month in each flair,
-        # then this is all unnecessary.
-        print("User Flair template list is missing " + str(missing_months) + " month(s)")
+        print(f"User Flair template list is missing {str(missing_months)} month(s)")
 
 
-def edit_wiki(ratio_arr, new_month, scanner):
-    ####################################################################################################################
-    # We edit the wiki upon two conditions:
-    #
-    #   1. After every 6-hour iteration (we do not edit user flair in this case).
-    #   2. After the first iteration of the main loop on the 1st day of the month.
-    #
-    # This will accept Markdown syntax and the Reddit wiki pages will create a TOC based on the tags used. This may be
-    # helpful for future needs.
-    ####################################################################################################################
+def edit_wiki(ratio_arr: list, new_month: bool, scanner: Scanner) -> None:
+    """Edit the subreddit's wiki page.
 
+    The wiki page is edited under two conditions:
+      1. After every 6-hour iteration (user flair is not edited in this case).
+      2. After the first iteration of the main loop on the 1st day of the month.
+
+    Note:
+        This will accept Markdown syntax and the Reddit wiki pages will create a TOC based on the tags used. This may be
+        helpful for future needs.
+
+    Args:
+        ratio_arr: A list of lists containing the username and average score for each user.
+        new_month: A boolean indicating whether it is the first iteration of the main loop on the 1st day of the month.
+        scanner: The Scanner object that we are currently working on.
+
+    Returns:
+        None.
+    """
     if new_month:
         month_string = MONTHS[int(datetime.datetime.today().month) - 1][NAME_IDX]
         reason_string = month_string + "'s Top 1% update"
         wiki_content = ("Top 1% Most Helpful Users of " + month_string)
 
         for i in range(0, len(ratio_arr)):
-            wiki_content += ("\n\n" + str(i + 1) + ". " + ratio_arr[i][0] +
-                             " [ average score: " + str(ratio_arr[i][1]) + " ]")
+            wiki_content += f"\n\n{str(i + 1)}. {ratio_arr[i][0]} [ average score: {str(ratio_arr[i][1])} ]"
 
         # this will add a new revision to an existing page, or create the page if it doesn't exist
         if ARGS.debug is None:
@@ -204,8 +237,8 @@ def edit_wiki(ratio_arr, new_month, scanner):
         wiki_content = "Last updated (UTC): " + str(datetime.datetime.utcnow())
         reason_string = "6-hour-update"
         for i in range(0, len(ratio_arr)):
-            wiki_content += ("\n\n" + str(i + 1) + ". " + ratio_arr[i][0] +
-                             " [ average score: " + str(ratio_arr[i][1]) + " ]")
+            # FIXME some duplicate code here we can get rid of
+            wiki_content += f"\n\n{str(i + 1)}. {ratio_arr[i][0]} [ average score: {str(ratio_arr[i][1])} ]"
         if ARGS.debug is None:
             scanner.sub_instance.wiki[scanner.bot_name + "/" + reason_string].edit(content=wiki_content,
                                                                                    reason=reason_string)
@@ -214,16 +247,37 @@ def edit_wiki(ratio_arr, new_month, scanner):
             print(wiki_content)
 
 
-def user_exists(obj, user_id_to_check):
-    found = False
+def user_exists(obj: dict, user_id_to_check: str) -> bool:
+    """Check if a user with the given ID exists in the 'obj' dictionary.
+
+    Args:
+      obj: A dictionary that represents all user with their comment IDs and scores.
+      user_id_to_check: The ID of the user to check.
+
+    Returns:
+      True if a user with the given ID exists, False otherwise.
+    """
     for user in obj["users"]:
         if user_id_to_check == user:
-            found = True
-            break
-    return found
+            return True
+    return False
 
 
-def update_existing(obj, comment_to_update, user_id: str):
+def update_existing(obj: dict, comment_to_update: praw.models.Comment, user_id: str) -> None:
+    """Update comment score if comment exist else add new comments.
+
+    The function checks if the comment ID already exists in the 'commentId' list of the user. If the comment ID exists,
+    the score is updated in the corresponding position of the 'commentScore' list. If the comment ID does not exist, the
+    comment ID and score are added to the respective lists.
+
+    Args:
+      obj: A dictionary that represents all user with their comment IDs and scores.
+      comment_to_update: The PRAW comment object to update.
+      user_id: The User ID for whom the comment belongs to.
+
+    Returns:
+      None.
+    """
     users_obj = obj["users"][user_id]
     id_arr = users_obj["commentId"]
     score_arr = users_obj["commentScore"]
@@ -242,12 +296,25 @@ def update_existing(obj, comment_to_update, user_id: str):
         score_arr.append(comment_to_update.score)
 
 
-def add_new(obj, comment_to_add):
+def add_new(obj: dict, comment_to_add: praw.models.Comment) -> None:
+    """Add a new comment to the 'obj' dictionary.
+
+    The function creates a new entry in the 'users' dictionary with the author's username as the key. The 'commentId'
+    list is initialized with the ID of the given comment, and the 'commentScore' list is initialized with the score of
+    the given comment.
+
+    Args:
+      obj: A dictionary that represents all user with their comment IDs and scores.
+      comment_to_add: The PRAW comment object to add.
+
+    Returns:
+      None.
+    """
     obj["users"][str(comment_to_add.author)] = {"commentId": [comment_to_add.id],
                                                 "commentScore": [comment_to_add.score]}
 
 
-def sleep(scanner: Scanner):
+def sleep(scanner: Scanner) -> None:
     """Puts the program to sleep for a calculated amount of time.
 
     We want each scanner to run four times per day, so that means it must complete one iteration every six hours
@@ -267,8 +334,10 @@ def sleep(scanner: Scanner):
     Scanner 2 sleep time = (21600 - 2088 - 1752) = 17760 seconds (4.93 hours)
 
     Args:
-        scanner: The Scanner object that we want to put to sleep after it has completed one iteration.
+      scanner: The Scanner object that we want to put to sleep after it has completed one iteration.
 
+    Returns:
+      None.
     """
     sleep_string = time.strftime("%H:%M:%S")
     first_pass_done = True
@@ -300,14 +369,29 @@ def sleep(scanner: Scanner):
 
 
 def sys_exit():
+    """Performs a graceful program termination for Windows and Linux systems.
+
+    Args:
+      None.
+
+    Returns:
+      None.
+    """
     try:
         sys.exit(130)
     except SystemExit:
         os.system(exit(130))
 
 
-def create_file(file_name):
-    # create the files if they don't exist
+def create_file(file_name: str):
+    """Creates the files if they don't exist.
+
+    Args:
+      file_name: The name of the json file, should match the sub's name.
+
+    Returns:
+      None.
+    """
     try:
         if os.path.isfile(file_name):
             print(file_name + " already exists")

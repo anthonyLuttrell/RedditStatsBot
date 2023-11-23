@@ -3,10 +3,7 @@ import json
 import math
 import os
 import sys
-import threading
 import time
-from queue import Queue
-from typing import Any
 
 from Scanner import Scanner
 from args import get_args
@@ -27,31 +24,39 @@ MONTHS = [
     ['November', ''],
     None]  # we get the previous month by subtracting 1, so December must be before January.
 
-RUN_TIME = []
 ARGS = get_args()
-Q_MAX_SIZE = 20
 NAME_IDX = 0
 FLAIR_TEMPLATE_ID_IDX = 1
 TOTAL_COMMENTS_IDX = 1
 AVG_SCORE_IDX = 1
 TOTAL_SCORE_IDX = 2
 NEG_COMMENTS_IDX = 3
-NUM_POSTS_TO_SCAN = ARGS.posts
-scanner_queue = Queue(maxsize=Q_MAX_SIZE)
+NUM_POSTS_TO_SCAN = 1000
+SLEEP_TIME_SECONDS = 21600  # 6 hours
+DEBUG_POSTS_TO_SCAN = ARGS.posts
+DEBUG_SLEEP_TIME = 30
+scanner_list = []
 
-alphabet_scanner = Scanner("alphabetbot",
-                           "CookingStatsBot",
-                           ARGS.posts,
-                           30)
-cooking_scanner = Scanner("Cooking",
-                          "CookingStatsBot",
-                          ARGS.posts,
-                          30)
+if ARGS.debug is not None:
+    alphabet_scanner = Scanner("alphabetbot",
+                               "CookingStatsBot",
+                               DEBUG_POSTS_TO_SCAN,
+                               DEBUG_SLEEP_TIME)
+    cooking_scanner = Scanner("Cooking",
+                              "CookingStatsBot",
+                              DEBUG_POSTS_TO_SCAN,
+                              DEBUG_SLEEP_TIME)
+    scanner_list.append(alphabet_scanner)
+    scanner_list.append(cooking_scanner)
+else:
+    cooking_scanner = Scanner("Cooking",
+                              "CookingStatsBot",
+                              NUM_POSTS_TO_SCAN,
+                              SLEEP_TIME_SECONDS)
+    scanner_list.append(cooking_scanner)
 
-scanner_list = [alphabet_scanner, cooking_scanner]
 
-
-def edit_flair(obj, scanner) -> bool:
+def edit_flair(obj: str, scanner: Scanner) -> bool:
     """Deletes and sets user flair, then updates the wiki pages.
 
     We determine when it is a new month when the previous_day is greater than
@@ -242,16 +247,56 @@ def add_new(obj, comment_to_add):
                                                 "commentScore": [comment_to_add.score]}
 
 
-def sleep(scanner):
+def sleep(scanner: Scanner):
+    """Puts the program to sleep for a calculated amount of time.
+
+    We want each scanner to run four times per day, so that means it must complete one iteration every six hours
+    (24 / 4 = 6). We must consider the runtime for each scanner to ensure each scanner can finish within this six-hour
+    window. To calculate the sleep time for each scanner, we start with six hours and subtract its average runtime, and
+    then subtract the total cumulative average runtime for all scanners. For example:
+
+    Scanner 1 average runtime =  900 seconds
+    Scanner 2 average runtime = 2268 seconds
+    Scanner 3 average runtime = 2088 seconds
+
+    total cumulative runtime = 5256 seconds
+    average total cumulative runtime = (5256 / 3) = 1752 seconds
+
+    Scanner 1 sleep time = (21600 -  900 - 1752) = 18948 seconds (5.26 hours)
+    Scanner 2 sleep time = (21600 - 2268 - 1752) = 17580 seconds (4.88 hours)
+    Scanner 2 sleep time = (21600 - 2088 - 1752) = 17760 seconds (4.93 hours)
+
+    Args:
+        scanner: The Scanner object that we want to put to sleep after it has completed one iteration.
+
+    """
     sleep_string = time.strftime("%H:%M:%S")
-    # including this as a workaround for the Docker logs, remove when fixed
-    # print("Sleeping since " + sleep_time + ", waking up in " + str(scanner.get_time_slice()) + " hours.")
-    sleep_time_seconds = round(scanner.sleep_seconds - (get_avg_runtime_minutes() * 60))
-    for i in range(0, sleep_time_seconds):
-        # FIXME this does not print in Docker logs. Just replace it with time.sleep(sleep_time_seconds) if needed
-        print("\r", "Sleeping since " + sleep_string + ", waking up in " +
-              str(sleep_time_seconds - i).rjust(5, "0") + " sec", end="")
-        time.sleep(1)
+    first_pass_done = True
+    cumulative_avg_runtime = 0
+    for temp_scanner in scanner_list:
+        avg_runtime = temp_scanner.get_avg_runtime_seconds()
+        if avg_runtime == 0:
+            # if any of the averages are 0 that means the scanner has NOT completed an iteration yet
+            first_pass_done = False
+        cumulative_avg_runtime += avg_runtime
+
+    # this allows each scanner to run to completion before we use cumulative_avg_runtime
+    runtime = cumulative_avg_runtime / len(scanner_list)
+    individual_avg_runtime = runtime if first_pass_done else scanner.get_avg_runtime_seconds()
+
+    # when scanner.sleep_seconds is very small (when debugging), this can be negative, so we'll just set it to 1
+    sleep_sec = round(scanner.sleep_seconds - scanner.get_avg_runtime_seconds() - cumulative_avg_runtime)
+    sleep_time_seconds = 1 if sleep_sec < 0 else sleep_sec
+
+    max_scanners = cumulative_avg_runtime / individual_avg_runtime
+
+    if len(scanner_list) > max_scanners and first_pass_done:
+        print(f"You have exceeded the recommended number of scanners: {max_scanners}, "
+              f"currently using {len(scanner_list)} scanners. "
+              f"Some scanners may not finish within {SLEEP_TIME_SECONDS / 60 / 60} hours!")
+
+    print(f"Sleeping since {sleep_string}, waking up in {str(round(sleep_time_seconds / 60 / 60, 2))} hours.")
+    time.sleep(sleep_time_seconds)
 
 
 def sys_exit():
@@ -275,113 +320,82 @@ def create_file(file_name):
         sys_exit()
 
 
-def fill_scanner_queue():
-    for scanner in scanner_list:
-        scanner_queue.put(scanner)
-
-
-def scanner_worker():
+def main():
 
     while True:
-        minutes_elapsed = 0
-        total_posts = 0
-        total_comments = 0
-        scanner = scanner_queue.get()
-        print(f"\nWorking on {scanner}, for {scanner.sub_name}")
-
         try:
-            file_name = scanner.sub_name + ".json"
-            create_file(file_name)
+            for scanner in scanner_list:
+                seconds_elapsed = 0
+                total_posts = 0
+                total_comments = 0
+                file_name = scanner.sub_name + ".json"
+                create_file(file_name)
 
-            with open(scanner.sub_name + ".json", "r+") as f:
-                obj = json.load(f)
-                start_seconds = time.perf_counter()
+                # we don't need a try/catch here because create_file guarantees the file exists
+                with open(file_name, "r+") as f:
+                    obj = json.load(f)
+                    start_seconds = time.perf_counter()
 
-                for submission in scanner.sub_instance.hot(limit=scanner.num_posts_to_scan):
+                    for submission in scanner.sub_instance.hot(limit=scanner.num_posts_to_scan):
 
-                    # scan each post from the top down when sorted by "hot"
-                    if submission.stickied is False:
-                        total_posts += 1
-                        submission.comments.replace_more(limit=0)
+                        # scan each post from the top down when sorted by "hot"
+                        if submission.stickied is False:
+                            total_posts += 1
+                            submission.comments.replace_more(limit=0)
 
-                        for comment in submission.comments:
-                            # scan each top-level comment
-                            if not comment.distinguished:
-                                user_id = str(comment.author)
-                                total_comments += 1
-                                # FIXME this does not print in Docker logs
-                                print("\r", "Began scanning submission ID " + str(submission.id) +
-                                      ", total Comments Scanned: " +
-                                      str(total_comments), end="")
-                                if user_id != "None":
-                                    if user_exists(obj, user_id):
-                                        update_existing(obj, comment, user_id)
-                                    else:
-                                        add_new(obj, comment)
-                            time.sleep(0.1)  # avoids HTTP 429 errors
+                            for comment in submission.comments:
+                                # scan each top-level comment
+                                if not comment.distinguished:
+                                    user_id = str(comment.author)
+                                    total_comments += 1
+                                    # FIXME this does not print in Docker logs
+                                    print("\r", "Began scanning submission ID " + str(submission.id) +
+                                          ", total Comments Scanned: " +
+                                          str(total_comments), end="")
+                                    if user_id != "None":
+                                        if user_exists(obj, user_id):
+                                            update_existing(obj, comment, user_id)
+                                        else:
+                                            add_new(obj, comment)
+                                time.sleep(0.1)  # avoids HTTP 429 errors
 
-                    time.sleep(0.1)  # avoids HTTP 429 errors
+                            # DONE scanning all comments in post
 
-                # DONE scanning
-            minutes_elapsed += (time.perf_counter() - start_seconds) / 60
-            update_avg_runtime(minutes_elapsed)
-            print("\nTime elapsed: " + str(datetime.timedelta(minutes=minutes_elapsed)))
+                        time.sleep(0.1)  # avoids HTTP 429 errors
 
-            if edit_flair(obj, scanner):
-                # clear out the comment log at the beginning of each month
-                obj["users"] = {}
+                # DONE scanning all posts in subreddit, moving on to next scanner in the list, but first...
+                seconds_elapsed += time.perf_counter() - start_seconds
+                scanner.append_avg_runtime_seconds(seconds_elapsed)
+                print("\nTime elapsed: " + str(datetime.timedelta(minutes=(seconds_elapsed / 60))))
+                scanner.previous_day = datetime.datetime.today().day  # update current day before we go to edit_flair
 
-            try:
-                with open(scanner.sub_name + ".json", "w") as f:
-                    f.seek(0)
-                    json.dump(obj, f, indent=2)
-                scanner.previous_day = datetime.datetime.today().day
-            except FileNotFoundError:
-                print("File Not Found, exiting.")
-                sys_exit()
+                if edit_flair(obj, scanner):
+                    # clear out the comment log at the beginning of each month
+                    obj["users"] = {}
 
+                try:
+                    # write to the JSON file and close the file
+                    with open(file_name, "w") as f:
+                        f.seek(0)
+                        json.dump(obj, f, indent=2)
+                    sleep(scanner)
+                except FileNotFoundError:
+                    print("File Not Found, exiting.")
+                    sys_exit()
+
+            # END for-each scanner loop
         except (KeyboardInterrupt, SystemExit):
             # catches Ctrl+C and IDE program interruption to ensure we write to the json file
-            # FIXME using threads here is causing more complications. When stopping the program now, KeyboardInterrupt
-            #  is not caught here, so we do not close out the json file like we should. There does not appear to be an
-            #  easy fix for this. Though, switching to a database instead of local files will make this meaningless.
             try:
                 print("\n-- Process halted, dumping JSON file --")
-                # highly unlikely that this scanner will be referenced before it is assigned
-                with open(scanner.sub_name + ".json", "w") as f:
+                # highly unlikely that file_name is referenced before it is defined
+                with open(file_name, "w") as f:
                     f.seek(0)
                     json.dump(obj, f, indent=2)
             except NameError:
                 sys_exit()
             sys_exit()
-
-        print(f"Finished working on {scanner}, for {scanner.sub_name}")
-        sleep(scanner)
-
-        # ensures the queue is never empty
-        scanner_queue.put(scanner)
-
-        scanner_queue.task_done()
-
-
-def update_avg_runtime(minutes):
-    RUN_TIME.append(minutes)
-
-
-def get_avg_runtime_minutes():
-    return 0 if len(RUN_TIME) == 0 else sum(RUN_TIME) / len(RUN_TIME)
-
-
-def main():
-    fill_scanner_queue()
-
-    # daemon=True here means the worker thread will stop to run even when the queue is empty
-    threading.Thread(target=scanner_worker, daemon=True).start()
-
-    # Blocks succeeding code until all items in the Queue have been gotten (removed) and marked with task_done
-    scanner_queue.join()
-
-    print(time.strftime("%H:%M:%S"), "Something went wrong, the queue was empty when it should not have been. Exiting.")
+    # END main while loop
 
 
 if __name__ == "__main__":

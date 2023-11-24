@@ -11,10 +11,17 @@
    Base styles: opinionated defaults
    ========================================================================== */
 
-html {
-  color: #222;
+html, body {
+  height: 100%;
+  width: 100%;
   font-size: 1em;
+  font-family: Verdana, "Arial Rounded MT Bold", ui-rounded;
   line-height: 1.4;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
 }
 
 /*
@@ -261,3 +268,63 @@ textarea {
   }
 }
 
+.main {
+  display: flex;
+  flex-flow: column nowrap;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header {
+  display: flex;
+  flex-flow: row nowrap;
+  justify-content: center;
+  align-items: center;
+  height: 50px;
+  background-color: #FF5700;
+}
+
+.body {
+  display: flex;
+  flex-flow: column wrap;
+  flex: auto;
+  justify-content: space-around;
+  align-items: center;
+  background-color: #EFF7FF;
+}
+
+.header-text {
+  font-size: x-large;
+  color: #336699;
+}
+
+.body-text {
+  font-size: 100px;
+  color: #222222;
+}
+
+.footer-text {
+  font-size: medium;
+}
+
+.footer {
+  display: flex;
+  flex-flow: row nowrap;
+  justify-content: center;
+  align-items: center;
+  height: 50px;
+  background-color: #FF4500;
+}
+
+.header-text {
+  color: white;
+}
+
+.footer-text {
+  color: #222222;
+}
+
+.textarea-readonly {
+  flex-grow: 20;
+  resize: none;
+}

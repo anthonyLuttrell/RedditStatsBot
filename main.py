@@ -4,14 +4,11 @@ import math
 import os
 import sys
 import time
-
 from typing import List
-
 import praw.models
-
 from Scanner import Scanner
 from args import get_args
-
+from ftp import send_file
 # ************************************************* GLOBAL CONSTANTS ************************************************* #
 MONTHS = [
     ['December', ''],
@@ -383,11 +380,12 @@ def sys_exit():
         os.system(exit(130))
 
 
-def create_file(file_name: str):
+def create_file(file_name: str, debug_ftp: bool):
     """Creates the files if they don't exist.
 
     Args:
       file_name: The name of the json file, should match the sub's name.
+      debug_ftp: True if you are sending a test file to the FTP server.
 
     Returns:
       None.
@@ -397,7 +395,10 @@ def create_file(file_name: str):
             print(file_name + " already exists")
         else:
             with open(file_name, "a") as f:
-                f.write("{\"users\":{}}")
+                if debug_ftp:
+                    f.write("{\"users\":{\"96dpi\":{\"commentId\":[\"asdfqwer\",\"jhkjer8f\"],\"commentScore\":[12, 1]}}}")
+                else:
+                    f.write("{\"users\":{}}")
                 print(file_name + " was created")
     except OSError:
         print("Unable to create new file, terminating program")
@@ -413,7 +414,7 @@ def main():
                 total_posts = 0
                 total_comments = 0
                 file_name = scanner.sub_name + ".json"
-                create_file(file_name)
+                create_file(file_name, False)
 
                 # we don't need a try/catch here because create_file guarantees the file exists
                 with open(file_name, "r+") as f:
@@ -484,3 +485,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+    # create_file("test_file.json", True)
+    # send_file("test_file.json")

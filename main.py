@@ -9,6 +9,7 @@ import praw.models
 from Scanner import Scanner
 from args import get_args
 from ftp import send_file
+
 # ************************************************* GLOBAL CONSTANTS ************************************************* #
 MONTHS = [
     ['December', ''],
@@ -97,6 +98,7 @@ def edit_flair(obj, scanner: Scanner) -> bool:
                       MONTHS[prev_month][FLAIR_TEMPLATE_ID_IDX])
 
     edit_wiki(ratios_arr, is_new_month, scanner)
+    upload_file_to_ftp_server(scanner.sub_name + ".json")
     return is_new_month
 
 
@@ -244,6 +246,13 @@ def edit_wiki(ratio_arr: list, new_month: bool, scanner: Scanner) -> None:
             print(wiki_content)
 
 
+def upload_file_to_ftp_server(file_name):
+    try:
+        print(send_file(file_name))
+    except:
+        print("Unable to upload file")
+
+
 def user_exists(obj: dict, user_id_to_check: str) -> bool:
     """Check if a user with the given ID exists in the 'obj' dictionary.
 
@@ -380,12 +389,13 @@ def sys_exit():
         os.system(exit(130))
 
 
-def create_file(file_name: str, debug_ftp: bool):
+def create_file(file_name: str, debug_ftp: bool, content: str):
     """Creates the files if they don't exist.
 
     Args:
       file_name: The name of the json file, should match the sub's name.
       debug_ftp: True if you are sending a test file to the FTP server.
+      content: A JSON-syntax string that will fill the file.
 
     Returns:
       None.
@@ -396,9 +406,10 @@ def create_file(file_name: str, debug_ftp: bool):
         else:
             with open(file_name, "a") as f:
                 if debug_ftp:
-                    f.write("{\"users\":{\"96dpi\":{\"commentId\":[\"asdfqwer\",\"jhkjer8f\"],\"commentScore\":[12, 1]}}}")
+                    f.write(
+                        "{\"users\":{\"96dpi\":{\"commentId\":[\"asdfqwer\",\"jhkjer8f\"],\"commentScore\":[12, 1]}}}")
                 else:
-                    f.write("{\"users\":{}}")
+                    f.write(content)
                 print(file_name + " was created")
     except OSError:
         print("Unable to create new file, terminating program")
@@ -406,7 +417,11 @@ def create_file(file_name: str, debug_ftp: bool):
 
 
 def main():
-
+    sub_list = {"subs": []}
+    for scanner in scanner_list:
+        sub_list["subs"].append(scanner.sub_name)
+    create_file("subreddits.json", False, str(sub_list))
+    send_file("subreddits.json")
     while True:
         try:
             for scanner in scanner_list:
@@ -414,7 +429,7 @@ def main():
                 total_posts = 0
                 total_comments = 0
                 file_name = scanner.sub_name + ".json"
-                create_file(file_name, False)
+                create_file(file_name, False, "{\"users\":{}}")
 
                 # we don't need a try/catch here because create_file guarantees the file exists
                 with open(file_name, "r+") as f:

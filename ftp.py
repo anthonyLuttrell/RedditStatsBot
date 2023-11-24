@@ -8,6 +8,23 @@ USERNAME = config["ftp"]["username"]
 PASSWORD = config["ftp"]["password"]
 
 
-def send_file(file_to_send: str):
-    with FTP(SERVER_ADDRESS, USERNAME, PASSWORD) as ftp, open(file_to_send, 'rb') as file:
-        ftp.storbinary(f"stor {file_to_send}", file)
+def send_file(file_to_send: str) -> str:
+    """Sends a file to our FTP server.
+
+    Calling code should ensure the file exists in the same directory and that it is formatted correctly for JSON syntax.
+
+    Args:
+        file_to_send: A string that is the file name with the extension. Example: "Cooking.json".
+
+    Returns:
+        A string that is the status of the upload. Example:
+        "226-File successfully transferred"
+        "226 0.027 seconds (measured here), 449.62 bytes per second"
+    """
+    try:
+        with FTP(SERVER_ADDRESS, USERNAME, PASSWORD) as ftp, open(file_to_send, 'rb') as file:
+            ftp.cwd("public_html/json")
+            return ftp.storbinary(f"STOR {file_to_send}", file)
+    except FileNotFoundError as e:
+        print(f"{e}: Unable to find file {file_to_send}")
+

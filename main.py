@@ -500,5 +500,5 @@ def main():
 
 if __name__ == "__main__":
     main()
-    # create_file("test_file.json", True)
+    # create_file("test_file.json", True, "")
     # send_file("test_file.json")

@@ -1,8 +1,19 @@
+const JSON_PATH = "https://redditstatsbot.com/json/subreddits.json"
+
 window.onload = async () =>
 {
-    let users = await (await fetch("https://redditstatsbot.com/test_file.json")).json()
-        .then((users) => displayUsers(users.users));
+    let list = await (await fetch(JSON_PATH)).json()
+        .then((subs) => fillSelect(subs));
 };
+
+function fillSelect(subs)
+{
+    const selectBox = document.getElementById("subreddits-select");
+    for (let sub in subs)
+    {
+        selectBox.add(sub.toString())
+    }
+}
 
 function displayUsers(users)
 {

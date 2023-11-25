@@ -37,7 +37,7 @@ BTW, you can actually run this in "read-only" mode on any subreddit. You will ju
 
 1. Similar to the `praw.ini` file, you will need an `ftp.ini` file that stores your FTP log-in credentials.
    * If you will be working on the web portion of this project, I can create a new FTP account for you upon request, and that is what you will use to fill out your `ftp.ini` file.
-   * If you will not be working on the web portion, you will need to comment out the code in `ftp.py` for now, until we figure out a better solution. 
+   * If you will not be working on the web portion, you will need to comment out the code in `ftp.py` for now (keep the `send_file` function, just replace its body with `pass`), until we figure out a better solution. 
    * The `ftp.ini` file should be stored in the root directory of the project and its contents should be: 
      ```
      [ftp]

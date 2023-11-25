@@ -420,7 +420,8 @@ def main():
     sub_list = {"subs": []}
     for scanner in scanner_list:
         sub_list["subs"].append(scanner.sub_name)
-    create_file("subreddits.json", False, str(sub_list))
+    json_sub_list = json.dumps(sub_list)
+    create_file("subreddits.json", False, str(json_sub_list))
     send_file("subreddits.json")
     while True:
         try:

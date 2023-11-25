@@ -1,18 +1,28 @@
-const JSON_PATH = "https://redditstatsbot.com/json/subreddits.json"
+const JSON_PATH = "/json/subreddits.json"
 
-window.onload = async () =>
+window.onload = () =>
 {
-    let list = await (await fetch(JSON_PATH)).json()
-        .then((subs) => fillSelect(subs));
+    fetchSubreddits().then(data => fillSelect(data.subs))
 };
 
 function fillSelect(subs)
 {
     const selectBox = document.getElementById("subreddits-select");
-    for (let sub in subs)
+    for (let i = 1; i <= subs.length; i++)
     {
-        selectBox.add(sub.toString())
+        let option = document.createElement("option");
+        option.value = i.toString();
+        option.text = subs[i - 1];
+        selectBox.add(option);
     }
+}
+
+async function fetchSubreddits()
+{
+    const response = await fetch(JSON_PATH)
+    let data = await response.json()
+    console.log(data)
+    return data
 }
 
 function displayUsers(users)

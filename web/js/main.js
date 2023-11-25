@@ -2,7 +2,9 @@ const JSON_PATH = "/json/subreddits.json"
 
 window.onload = () =>
 {
-    fetchSubreddits().then(data => fillSelect(data.subs))
+    fetchSubreddits()
+        .then(data => fillSelect(data.subs))
+        .then(saveUserData()) // FIXME this isn't working right. saveUserData is being called before fillSelect has completed, so we are
 };
 
 function fillSelect(subs)
@@ -17,12 +19,28 @@ function fillSelect(subs)
     }
 }
 
+async function saveUserData()
+{
+    for (let sub in sessionStorage.getItem("subs"))
+    {
+        // Because these files are updated on the server every 6 hours, we need to avoid the browser cache each time a
+        // user loads the web page. Appending "?<unique string>" to the end of the URL will avoid the cache.
+
+        const path = "/json/" + sub + ".json?" + Date.now().toString();
+        const response = await fetch(path);
+        const data = await response.json();
+        sessionStorage.setItem(sub, data.users.toString());
+    }
+}
+
 async function fetchSubreddits()
 {
-    const response = await fetch(JSON_PATH)
-    let data = await response.json()
-    console.log(data)
-    return data
+    //
+    const path = JSON_PATH.concat("?" + Date.now().toString());
+    const response = await fetch(path);
+    const data = await response.json();
+    sessionStorage.setItem("subs", data.subs.toString());
+    return data;
 }
 
 function displayUsers(users)

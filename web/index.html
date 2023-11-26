@@ -29,18 +29,27 @@
   </div>
   <div class="body">
     <label for="subreddits-select">
-      <select name="subreddits" id="subreddits-select" onchange="displayUsers(this.value);">
+      <select name="subreddits" id="subreddits-select" onchange="displayAllUsers(this.value);">
         <option value="0">-- Select a Subreddit --</option>
       </select>
     </label>
-    <label for="search">
-      <input type="text" id="search" placeholder="Reddit username..."/>
-    </label>
-    <label for="output">
-      <!-- this textarea should not be a fixed width/height, need to figure out a better way -->
-      <textarea readonly id="output" class="textarea-readonly" rows="25" cols="30"></textarea>
-    </label>
-    <span id="body-subtext" class="body-text" style="font-size: medium"></span>
+    <input type="text" id="search-box" onkeyup="myFunction()" placeholder="Search for username...">
+    <table id="myTable">
+      <thead>
+        <tr class="header">
+          <th style="width:25%;">Username</th>
+          <th style="width:25%;">Comments</th>
+          <th style="width:25%;">Karma</th>
+          <th style="width:25%;">Negatives</th>
+        </tr>
+      </thead>
+      <tr>
+        <td>
+        </td>
+      </tr>
+      <tbody>
+      </tbody>
+    </table>
   </div>
   <div class="footer">
     <span id="footer-span" class="footer-text"></span>

@@ -81,23 +81,24 @@ async function fetchSubreddits()
  *
  * @param value
  */
-function displayUsers(value)
+function displayAllUsers(value)
 {
     if (value === "0")
     {   // value is 0 when user selects the default select box option, so don't do anything in that case
         return;
     }
 
-    const textArea = document.getElementById("output");
+    const table = document.getElementById("myTable").getElementsByTagName("tbody")[0];
     const subsArr = sessionStorage.getItem(SUBS_KEY).split(",");
     const users = JSON.parse(sessionStorage.getItem(subsArr[value - 1]));
-
-    textArea.value = ""; // clear the textarea because you can still have old data after selecting a new subreddit
     const totalsArray = getTotalsArray(users);
 
     for (const user of totalsArray)
     {
-        textArea.value += user.toString() + "\r\n";
+        const newRow = table.insertRow(table.rows.length);
+        const newCell = newRow.insertCell(0);
+        const newText = document.createTextNode(user);
+        newCell.appendChild(newText)
     }
 }
 
@@ -134,11 +135,9 @@ function getTotalsArray(usersObj)
             {
                 totalNegativeComments++;
             }
-            // FIXME if a user has more than one comment, we are adding them to
-            //  the array more than once, rather than just updating a single
-            //  entry. Is the Python version doing the same thing?
-            totalsArray.push([user, totalUserComments, totalUserScore, totalNegativeComments]);
         }
+
+        totalsArray.push([user, totalUserComments, totalUserScore, totalNegativeComments]);
     }
 
     return totalsArray;

@@ -134,6 +134,9 @@ function getTotalsArray(usersObj)
             {
                 totalNegativeComments++;
             }
+            // FIXME if a user has more than one comment, we are adding them to
+            //  the array more than once, rather than just updating a single
+            //  entry. Is the Python version doing the same thing?
             totalsArray.push([user, totalUserComments, totalUserScore, totalNegativeComments]);
         }
     }

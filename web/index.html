@@ -29,8 +29,8 @@
   </div>
   <div class="body">
     <label for="subreddits-select">
-      <select name="subreddits" id="subreddits-select">
-        <option value="">-- Select a Subreddit --</option>
+      <select name="subreddits" id="subreddits-select" onchange="displayUsers(this.value);">
+        <option value="0">-- Select a Subreddit --</option>
       </select>
     </label>
     <label for="search">

@@ -286,29 +286,12 @@ textarea {
 
 .body {
   display: flex;
-  flex-flow: column wrap;
+  flex-flow: column nowrap;
   flex: auto;
-  justify-content: space-around;
+  justify-content: flex-start;
   align-items: center;
   background-color: #EFF7FF;
-}
-
-.output-div {
-  display: flex;
-  flex-direction: column;
-  width: 75%;
-  max-width: 75%;
-  height: 75%;
-  max-height: 75%;
-}
-
-.output-header {
-  display: flex;
-  flex-wrap: nowrap;
-}
-
-.output-header-text {
-  display: flex;
+  row-gap: 30px;
 }
 
 .header-text {
@@ -343,11 +326,25 @@ textarea {
   color: #222222;
 }
 
-.textarea-readonly {
+.select-div {
   display: flex;
-  flex-grow: 2;
-  resize: none;
-  padding: 0.5rem;
+  justify-content: center;
+  margin-top: 30px;
+  width: 50%;
+  max-width: 50%;
+}
+
+.search-div {
+  display: flex;
+  width: 75%;
+  max-width: 75%;
+}
+
+.table-div {
+  display: flex;
+  flex-direction: column;
+  width: 75%;
+  max-width: 75%;
 }
 
 #search-box {
@@ -356,32 +353,39 @@ textarea {
   background-size: 20px;
   background-position: 10px 12px; /* Position the search icon */
   background-repeat: no-repeat; /* Do not repeat the icon image */
-  width: 80%; /* Full-width */
+  width: 100%; /* Full-width */
   font-size: 16px; /* Increase font-size */
   padding: 12px 20px 12px 40px; /* Add some padding */
   border: 1px solid #ddd; /* Add a grey border */
+  border-radius: 30px;
   margin-bottom: 12px; /* Add some space below the input */
 }
 
-#myTable {
+#output-table {
   display: flex;
+  flex-direction: column;
+  table-layout: fixed;
   border-collapse: collapse; /* Collapse borders */
-  width: 80%; /* Full-width */
+  width: 100%; /* Full-width */
   border: 1px solid #ddd; /* Add a grey border */
   font-size: 18px; /* Increase font-size */
 }
 
-#myTable th, #myTable td {
+#output-table th, #output-table td {
   text-align: left; /* Left-align text */
   padding: 12px; /* Add padding */
 }
 
-#myTable tr {
-  /* Add a bottom border to all table rows */
+#output-table tr {
+  display: flex;
   border-bottom: 1px solid #ddd;
 }
 
-#myTable tr.header, #myTable tr:hover {
+#output-table tr.header, #output-table tr:hover {
   /* Add a grey background color to the table header and on hover */
   background-color: #f1f1f1;
+}
+
+#output-table td {
+
 }

@@ -28,28 +28,29 @@
     <span id="header-span" class="header-text">reddit stats bot</span>
   </div>
   <div class="body">
-    <label for="subreddits-select">
-      <select name="subreddits" id="subreddits-select" onchange="displayAllUsers(this.value);">
+    <div class="select-div">
+      <select id="subreddits-select" class="select-div" onchange="displayAllUsers(this.value);">
         <option value="0">-- Select a Subreddit --</option>
       </select>
-    </label>
-    <input type="text" id="search-box" onkeyup="myFunction()" placeholder="Search for username...">
-    <table id="myTable">
-      <thead>
+    </div>
+    <div class="search-div">
+      <input type="text" id="search-box" onkeyup="filterInput()" placeholder="Search for username...">
+    </div>
+    <div class="table-div">
+      <table id="output-table">
+        <thead>
         <tr class="header">
-          <th style="width:25%;">Username</th>
-          <th style="width:25%;">Comments</th>
-          <th style="width:25%;">Karma</th>
-          <th style="width:25%;">Negatives</th>
+          <th style="width:33%;">Username</th>
+          <th style="width:22.3%;">Comments</th>
+          <th style="width:22.3%;">Karma</th>
+          <th style="width:22.3%;">Negatives</th>
         </tr>
-      </thead>
-      <tr>
-        <td>
-        </td>
-      </tr>
-      <tbody>
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+        </tbody>
+        <tfoot></tfoot>
+      </table>
+    </div>
   </div>
   <div class="footer">
     <span id="footer-span" class="footer-text"></span>

@@ -88,17 +88,33 @@ function displayAllUsers(value)
         return;
     }
 
-    const table = document.getElementById("myTable").getElementsByTagName("tbody")[0];
+
+    const table = document.getElementById("output-table").getElementsByTagName("tbody")[0];
     const subsArr = sessionStorage.getItem(SUBS_KEY).split(",");
     const users = JSON.parse(sessionStorage.getItem(subsArr[value - 1]));
     const totalsArray = getTotalsArray(users);
+    clearTable(table);
 
     for (const user of totalsArray)
     {
         const newRow = table.insertRow(table.rows.length);
-        const newCell = newRow.insertCell(0);
-        const newText = document.createTextNode(user);
-        newCell.appendChild(newText)
+        const newCell0 = newRow.insertCell(0);
+        const newCell1 = newRow.insertCell(1);
+        const newCell2 = newRow.insertCell(2);
+        const newCell3 = newRow.insertCell(3);
+        const userName = document.createTextNode(user[0]);
+        const totalComments = document.createTextNode(user[1]);
+        const totalScore = document.createTextNode(user[2]);
+        const totalNegatives = document.createTextNode(user[3]);
+        // FIXME truncate username text if it's over a certain character limit
+        newCell0.appendChild(userName)
+        newCell1.appendChild(totalComments);
+        newCell2.appendChild(totalScore);
+        newCell3.appendChild(totalNegatives);
+        newCell0.style.width = "33%";
+        newCell1.style.width = "22.3%";
+        newCell2.style.width = "22.3%";
+        newCell3.style.width = "22.3%";
     }
 }
 
@@ -141,4 +157,37 @@ function getTotalsArray(usersObj)
     }
 
     return totalsArray;
+}
+
+function filterInput()
+{
+    const input = document.getElementById("search-box");
+    const filter = input.value.toUpperCase();
+    const table = document.getElementById("output-table");
+    const tr = table.getElementsByTagName("tr");
+
+    for (let i = 0; i < tr.length; i++)
+    {
+        const td = tr[i].getElementsByTagName("td")[0];
+        if (td)
+        {
+            let txtValue = td.textContent || td.innerText;
+            if (txtValue.toUpperCase().indexOf(filter) > -1)
+            {
+                tr[i].style.display = "";
+            }
+            else
+            {
+                tr[i].style.display = "none";
+            }
+        }
+    }
+}
+
+function clearTable(table)
+{
+    for (const row of table)
+    {   // FIXME this isn't working, table is not iterable
+        row.remove();
+    }
 }

@@ -281,7 +281,7 @@ textarea {
   justify-content: center;
   align-items: center;
   height: 50px;
-  background-color: #FF5700;
+  background-color: #FF8b60;
 }
 
 .body {
@@ -292,11 +292,6 @@ textarea {
   align-items: center;
   background-color: #EFF7FF;
   row-gap: 30px;
-}
-
-.header-text {
-  font-size: x-large;
-  color: #336699;
 }
 
 .body-text {
@@ -315,7 +310,7 @@ textarea {
   justify-content: center;
   align-items: center;
   height: 50px;
-  background-color: #FF4500;
+  background-color: #9494FF;
 }
 
 .header-text {
@@ -330,21 +325,28 @@ textarea {
   display: flex;
   justify-content: center;
   margin-top: 30px;
-  width: 50%;
-  max-width: 50%;
+  width: 90%;
+  max-width: 90%;
+}
+
+.select-box {
+  display: flex;
+  justify-content: center;
+  width: 80%;
+  max-width: 80%;
 }
 
 .search-div {
   display: flex;
-  width: 75%;
-  max-width: 75%;
+  width: 90%;
+  max-width: 90%;
 }
 
 .table-div {
   display: flex;
   flex-direction: column;
-  width: 75%;
-  max-width: 75%;
+  width: 95%;
+  max-width: 95%;
 }
 
 #search-box {
@@ -354,7 +356,7 @@ textarea {
   background-position: 10px 12px; /* Position the search icon */
   background-repeat: no-repeat; /* Do not repeat the icon image */
   width: 100%; /* Full-width */
-  font-size: 16px; /* Increase font-size */
+  font-size: 14px; /* Increase font-size */
   padding: 12px 20px 12px 40px; /* Add some padding */
   border: 1px solid #ddd; /* Add a grey border */
   border-radius: 30px;
@@ -368,12 +370,16 @@ textarea {
   border-collapse: collapse; /* Collapse borders */
   width: 100%; /* Full-width */
   border: 1px solid #ddd; /* Add a grey border */
-  font-size: 18px; /* Increase font-size */
+  font-size: 12px; /* Increase font-size */
 }
 
 #output-table th, #output-table td {
   text-align: left; /* Left-align text */
-  padding: 12px; /* Add padding */
+  padding: 8px; /* Add padding */
+}
+
+th {
+  cursor: pointer;
 }
 
 #output-table tr {
@@ -383,9 +389,5 @@ textarea {
 
 #output-table tr.header, #output-table tr:hover {
   /* Add a grey background color to the table header and on hover */
-  background-color: #f1f1f1;
-}
-
-#output-table td {
-
+  background-color: #336699;
 }

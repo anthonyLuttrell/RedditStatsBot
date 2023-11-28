@@ -29,7 +29,7 @@
   </div>
   <div class="body">
     <div class="select-div">
-      <select id="subreddits-select" class="select-div" onchange="displayAllUsers(this.value);">
+      <select id="subreddits-select" class="select-box" onchange="displayAllUsers(this.value);">
         <option value="0">-- Select a Subreddit --</option>
       </select>
     </div>
@@ -40,10 +40,10 @@
       <table id="output-table">
         <thead>
         <tr class="header">
-          <th style="width:33%;">Username</th>
-          <th style="width:22.3%;">Comments</th>
-          <th style="width:22.3%;">Karma</th>
-          <th style="width:22.3%;">Negatives</th>
+          <th style="width:33%;" onclick="sortTable(0)">User</th>
+          <th style="width:22.3%;" onclick="sortTable(1)">Comments</th>
+          <th style="width:22.3%;" onclick="sortTable(2)">Score</th>
+          <th style="width:22.3%;" onclick="sortTable(3)">Negs</th>
         </tr>
         </thead>
         <tbody>

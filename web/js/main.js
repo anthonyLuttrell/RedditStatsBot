@@ -1,7 +1,12 @@
-const JSON_PATH = "/json/"
-const JSON_QUERY = ".json?" + Date.now().toString()
-const SUBS_STRING = "subreddits"
-const SUBS_KEY = "subs"
+const JSON_PATH = "/json/";
+const JSON_QUERY = ".json?" + Date.now().toString();
+const SUBS_STRING = "subreddits";
+const SUBS_KEY = "subs";
+const USERNAME_IDX = 0;
+const TOTAL_COMMENTS_IDX = 1;
+const TOTAL_SCORE_IDX = 2;
+const TOTAL_NEG_COMMENTS_IDX = 3;
+const WINDOW_RATIO = window.innerWidth / window.innerHeight;
 
 window.onload = () =>
 {
@@ -74,11 +79,6 @@ async function fetchSubreddits()
 /**
  * Displays a summary of each user's comment history.
  *
- * Username                             | Number of Comments | Total Score | Number of Negative Comments
- * xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx | xxxx               | xxxxx       | xxx
- *
- * TODO need to figure out a better way to display this data. Maximum Reddit username characters is 36
- *
  * @param value
  */
 function displayAllUsers(value)
@@ -88,34 +88,59 @@ function displayAllUsers(value)
         return;
     }
 
-
     const table = document.getElementById("output-table").getElementsByTagName("tbody")[0];
     const subsArr = sessionStorage.getItem(SUBS_KEY).split(",");
     const users = JSON.parse(sessionStorage.getItem(subsArr[value - 1]));
     const totalsArray = getTotalsArray(users);
-    clearTable(table);
+
+    // remove all rows when you select a different sub
+    clearTable(table.rows.length);
 
     for (const user of totalsArray)
     {
+        // TODO this can all be refactored into smaller nested functions
+        const truncatedUsername = truncateUsername(user);
+
         const newRow = table.insertRow(table.rows.length);
-        const newCell0 = newRow.insertCell(0);
-        const newCell1 = newRow.insertCell(1);
-        const newCell2 = newRow.insertCell(2);
-        const newCell3 = newRow.insertCell(3);
-        const userName = document.createTextNode(user[0]);
-        const totalComments = document.createTextNode(user[1]);
-        const totalScore = document.createTextNode(user[2]);
-        const totalNegatives = document.createTextNode(user[3]);
-        // FIXME truncate username text if it's over a certain character limit
+
+        const newCell0 = newRow.insertCell(USERNAME_IDX);
+        const newCell1 = newRow.insertCell(TOTAL_COMMENTS_IDX);
+        const newCell2 = newRow.insertCell(TOTAL_SCORE_IDX);
+        const newCell3 = newRow.insertCell(TOTAL_NEG_COMMENTS_IDX);
+
+        const userName = document.createTextNode(truncatedUsername);
+        const totalComments = document.createTextNode(user[TOTAL_COMMENTS_IDX]);
+        const totalScore = document.createTextNode(user[TOTAL_SCORE_IDX]);
+        const totalNegatives = document.createTextNode(user[TOTAL_NEG_COMMENTS_IDX]);
+
         newCell0.appendChild(userName)
         newCell1.appendChild(totalComments);
         newCell2.appendChild(totalScore);
         newCell3.appendChild(totalNegatives);
-        newCell0.style.width = "33%";
-        newCell1.style.width = "22.3%";
-        newCell2.style.width = "22.3%";
-        newCell3.style.width = "22.3%";
+
+        newCell0.style.width = "40%";
+        newCell1.style.width = "20%";
+        newCell2.style.width = "20%";
+        newCell3.style.width = "20%";
     }
+}
+
+function truncateUsername(user)
+{
+    let userNameString = user[0]
+
+    if (WINDOW_RATIO < 0.70 && user[USERNAME_IDX].length > 11)
+    {   // truncate the username because we are short on horizontal space
+        userNameString = user[0].slice(0, 12);
+        userNameString += "...";
+    }
+    else if (user[USERNAME_IDX].length > 25)
+    {   // Reddit username character limit is 36
+        userNameString = user[0].slice(0, 26);
+        userNameString += "...";
+    }
+
+    return userNameString;
 }
 
 /**
@@ -184,10 +209,90 @@ function filterInput()
     }
 }
 
-function clearTable(table)
+function clearTable(tableLength)
 {
-    for (const row of table)
-    {   // FIXME this isn't working, table is not iterable
-        row.remove();
+    const table = document.getElementById("output-table").getElementsByTagName("tbody")[0]
+    for (let i = 0; i < tableLength; i++)
+    {
+        table.deleteRow(-1);
+    }
+}
+
+function sortTable(n)
+{
+    // FIXME this is super ugly and slow code stolen from here: https://www.w3schools.com/howto/howto_js_sort_table.asp
+    //  this should be cleaned up and optimized. It is only sorting by name, not by integer.
+    //  see here: https://stackoverflow.com/questions/11304490/quick-html-table-sorting
+    //  and here: https://stackoverflow.com/questions/59282842/how-to-make-sorting-html-tables-faster
+    var table,
+        rows,
+        switching,
+        i,
+        x,
+        y,
+        shouldSwitch,
+        dir,
+        switchcount = 0;
+    table = document.getElementById("output-table");
+    switching = true;
+    // Set the sorting direction to ascending:
+    dir = "asc";
+    /* Make a loop that will continue until
+    no switching has been done: */
+    while (switching)
+    {
+        // Start by saying: no switching is done:
+        switching = false;
+        rows = table.rows;
+        /* Loop through all table rows (except the
+        first, which contains table headers): */
+        for (i = 1; i < (rows.length - 1); i++)
+        {
+            // Start by saying there should be no switching:
+            shouldSwitch = false;
+            /* Get the two elements you want to compare,
+            one from current row and one from the next: */
+            x = rows[i].getElementsByTagName("TD")[n];
+            y = rows[i + 1].getElementsByTagName("TD")[n];
+            /* Check if the two rows should switch place,
+            based on the direction, asc or desc: */
+            if (dir == "asc")
+            {
+                if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase())
+                {
+                    // If so, mark as a switch and break the loop:
+                    shouldSwitch = true;
+                    break;
+                }
+            }
+            else if (dir == "desc")
+            {
+                if (x.innerHTML.toLowerCase() < y.innerHTML.toLowerCase())
+                {
+                    // If so, mark as a switch and break the loop:
+                    shouldSwitch = true;
+                    break;
+                }
+            }
+        }
+        if (shouldSwitch)
+        {
+            /* If a switch has been marked, make the switch
+            and mark that a switch has been done: */
+            rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+            switching = true;
+            // Each time a switch is done, increase this count by 1:
+            switchcount++;
+        }
+        else
+        {
+            /* If no switching has been done AND the direction is "asc",
+            set the direction to "desc" and run the while loop again. */
+            if (switchcount == 0 && dir == "asc")
+            {
+                dir = "desc";
+                switching = true;
+            }
+        }
     }
 }

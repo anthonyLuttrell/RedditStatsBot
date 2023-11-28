@@ -15,7 +15,7 @@ window.onload = () =>
         {
             fillSelectBox(data.subs);
             saveUserData()
-                .then(/*  */);
+                .then(/* FIXME add timestamp to JSON, add to footer */);
         });
 };
 

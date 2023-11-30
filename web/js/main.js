@@ -10,12 +10,13 @@ const WINDOW_RATIO = window.innerWidth / window.innerHeight;
 
 window.onload = () =>
 {
+    setSelectBoxWidth();
     fetchSubreddits()
         .then(data =>
         {
-            fillSelectBox(data.subs);
+            fillSelectBox(data);
             saveUserData()
-                .then(/* FIXME add timestamp to JSON, add to footer */);
+                .then(/* */);
         });
 };
 
@@ -24,16 +25,16 @@ window.onload = () =>
  * HTML select element with the list of subreddits that the main app is looping
  * through. The user can select which subreddit they want to see results from.
  *
- * @param subs
+ * @param data
  */
-function fillSelectBox(subs)
+function fillSelectBox(data)
 {
     const selectBox = document.getElementById("subreddits-select");
-    for (let i = 1; i <= subs.length; i++)
+    for (let i = 1; i <= data.subs.length; i++)
     {
         let option = document.createElement("option");
         option.value = i.toString();
-        option.text = subs[i - 1];
+        option.text = data.subs[i - 1];
         selectBox.add(option);
     }
 }
@@ -55,8 +56,10 @@ async function saveUserData()
     {
         const path = JSON_PATH + sub + JSON_QUERY;
         const response = await fetch(path);
-        const data = await response.json();
-        sessionStorage.setItem(sub, JSON.stringify(data)); // make sure to use JSON.parse when parsing this data in session storage
+        const data = await response.json()
+        // make sure to use JSON.parse when parsing this data in session storage
+        sessionStorage.setItem(sub, JSON.stringify(data));
+        sessionStorage.setItem(sub + "-timestamp", JSON.stringify(data.timestamp))
     }
 }
 
@@ -89,6 +92,7 @@ function displayAllUsers(value)
     }
 
     const table = document.getElementById("output-table").getElementsByTagName("tbody")[0];
+    const footerText = document.getElementById("footer-span");
     const subsArr = sessionStorage.getItem(SUBS_KEY).split(",");
     const users = JSON.parse(sessionStorage.getItem(subsArr[value - 1]));
     const totalsArray = getTotalsArray(users);
@@ -96,11 +100,10 @@ function displayAllUsers(value)
     // remove all rows when you select a different sub
     clearTable(table.rows.length);
 
+    document.body.className = 'waiting';
     for (const user of totalsArray)
     {
         // TODO this can all be refactored into smaller nested functions
-        const truncatedUsername = truncateUsername(user);
-
         const newRow = table.insertRow(table.rows.length);
 
         const newCell0 = newRow.insertCell(USERNAME_IDX);
@@ -108,7 +111,12 @@ function displayAllUsers(value)
         const newCell2 = newRow.insertCell(TOTAL_SCORE_IDX);
         const newCell3 = newRow.insertCell(TOTAL_NEG_COMMENTS_IDX);
 
-        const userName = document.createTextNode(truncatedUsername);
+        newCell0.style.width = "40%";
+        newCell1.style.width = "20%";
+        newCell2.style.width = "20%";
+        newCell3.style.width = "20%";
+
+        const userName = document.createTextNode(truncateUsername(user));
         const totalComments = document.createTextNode(user[TOTAL_COMMENTS_IDX]);
         const totalScore = document.createTextNode(user[TOTAL_SCORE_IDX]);
         const totalNegatives = document.createTextNode(user[TOTAL_NEG_COMMENTS_IDX]);
@@ -117,12 +125,14 @@ function displayAllUsers(value)
         newCell1.appendChild(totalComments);
         newCell2.appendChild(totalScore);
         newCell3.appendChild(totalNegatives);
-
-        newCell0.style.width = "40%";
-        newCell1.style.width = "20%";
-        newCell2.style.width = "20%";
-        newCell3.style.width = "20%";
     }
+
+    // TODO convert this UTC string into the browser's local time
+    //  see here: https://www.tutorialspoint.com/how-to-convert-utc-date-time-into-local-date-time-using-javascript
+    footerText.innerText = "Last updated (UTC): " +
+        JSON.parse(sessionStorage.getItem(subsArr[value - 1] + "-timestamp"))
+
+    document.body.className = '';
 }
 
 function truncateUsername(user)
@@ -218,81 +228,71 @@ function clearTable(tableLength)
     }
 }
 
-function sortTable(n)
+function sortTableRowsByColumn( columnIndex, ascending )
 {
-    // FIXME this is super ugly and slow code stolen from here: https://www.w3schools.com/howto/howto_js_sort_table.asp
-    //  this should be cleaned up and optimized. It is only sorting by name, not by integer.
-    //  see here: https://stackoverflow.com/questions/11304490/quick-html-table-sorting
-    //  and here: https://stackoverflow.com/questions/59282842/how-to-make-sorting-html-tables-faster
-    var table,
-        rows,
-        switching,
-        i,
-        x,
-        y,
-        shouldSwitch,
-        dir,
-        switchcount = 0;
-    table = document.getElementById("output-table");
-    switching = true;
-    // Set the sorting direction to ascending:
-    dir = "asc";
-    /* Make a loop that will continue until
-    no switching has been done: */
-    while (switching)
+    const table = document.getElementById("output-table");
+    const rows = Array.from( table.querySelectorAll( ':scope > tbody > tr' ) );
+    document.body.className = 'waiting';
+    rows.sort( ( x, y ) => {
+
+        const xValue = x.cells[columnIndex].textContent;
+        const yValue = y.cells[columnIndex].textContent;
+
+        const xNum = parseFloat( xValue );
+        const yNum = parseFloat( yValue );
+
+        return ascending ? ( xNum - yNum ) : ( yNum - xNum );
+    } );
+
+    const fragment = new DocumentFragment();
+    for( let row of rows )
     {
-        // Start by saying: no switching is done:
-        switching = false;
-        rows = table.rows;
-        /* Loop through all table rows (except the
-        first, which contains table headers): */
-        for (i = 1; i < (rows.length - 1); i++)
+        fragment.appendChild( row );
+    }
+
+    table.tBodies[0].appendChild( fragment );
+    document.body.className = '';
+}
+
+/**
+ * Sort table data based on a direction of asc or desc for a specific column
+ * @param {number} n - column number calling this sort
+ * @param {string} dir - direction of the sort (asc or desc)
+ * @param {HTMLTableElement} targetElem - sort icon
+ */
+function sortTable(n, dir = "asc", targetElem) {
+    targetElem.style.cursor = "progress";
+    let sortArr = [];
+    let table = targetElem.closest('table');
+    table.querySelectorAll('tbody > tr > td:nth-Child(' + parseInt(n) + ')').forEach((x, y) => sortArr.push(
         {
-            // Start by saying there should be no switching:
-            shouldSwitch = false;
-            /* Get the two elements you want to compare,
-            one from current row and one from the next: */
-            x = rows[i].getElementsByTagName("TD")[n];
-            y = rows[i + 1].getElementsByTagName("TD")[n];
-            /* Check if the two rows should switch place,
-            based on the direction, asc or desc: */
-            if (dir == "asc")
-            {
-                if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase())
-                {
-                    // If so, mark as a switch and break the loop:
-                    shouldSwitch = true;
-                    break;
-                }
+            sortText: x.innerHTML.toLowerCase(),
+            rowElement: x.closest('tr')
+        }));
+    var sorted = sortArr.sort(function (a, b) {
+        if (dir == "asc") {
+            if (a.sortText < b.sortText) {
+                return -1;
             }
-            else if (dir == "desc")
-            {
-                if (x.innerHTML.toLowerCase() < y.innerHTML.toLowerCase())
-                {
-                    // If so, mark as a switch and break the loop:
-                    shouldSwitch = true;
-                    break;
-                }
+        } else if (dir == "desc") {
+            if (a.sortText > b.sortText) {
+                return -1;
             }
         }
-        if (shouldSwitch)
-        {
-            /* If a switch has been marked, make the switch
-            and mark that a switch has been done: */
-            rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
-            switching = true;
-            // Each time a switch is done, increase this count by 1:
-            switchcount++;
-        }
-        else
-        {
-            /* If no switching has been done AND the direction is "asc",
-            set the direction to "desc" and run the while loop again. */
-            if (switchcount == 0 && dir == "asc")
-            {
-                dir = "desc";
-                switching = true;
-            }
-        }
+        return 0;
+    });
+    sorted.forEach((x, y) => {
+        x.rowElement.parentNode.insertBefore(x.rowElement, x.rowElement.parentNode.children[y]);
+    });
+    targetElem.style.cursor = null;
+}
+
+function setSelectBoxWidth()
+{
+    const selectBox = document.getElementById("subreddits-select");
+    if (WINDOW_RATIO > 1.25)
+    {
+        selectBox.style.width = "25%";
+        selectBox.style.maxWidth = "25%";
     }
 }

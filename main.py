@@ -6,10 +6,13 @@ import sys
 import time
 from typing import List
 import praw.models
+import prawcore.exceptions
+
 from Scanner import Scanner
 from args import get_args
 from ftp import send_file
 
+# TODO implement a read-only mode
 # ************************************************* GLOBAL CONSTANTS ************************************************* #
 MONTHS = [
     ['December', ''],
@@ -33,8 +36,8 @@ TOTAL_COMMENTS_IDX = 1
 AVG_SCORE_IDX = 1
 TOTAL_SCORE_IDX = 2
 NEG_COMMENTS_IDX = 3
-NUM_POSTS_TO_SCAN = 1000
-SLEEP_TIME_SECONDS = 21600  # 6 hours
+NUM_POSTS_TO_SCAN = 10
+SLEEP_TIME_SECONDS = 300  # 6 hours 21600
 DEBUG_POSTS_TO_SCAN = ARGS.posts
 DEBUG_SLEEP_TIME = 30
 scanner_list = []
@@ -44,17 +47,22 @@ if ARGS.debug is not None:
                                "CookingStatsBot",
                                DEBUG_POSTS_TO_SCAN,
                                DEBUG_SLEEP_TIME)
-    cooking_scanner = Scanner("Cooking",
-                              "CookingStatsBot",
-                              DEBUG_POSTS_TO_SCAN,
-                              DEBUG_SLEEP_TIME)
+    # cooking_scanner = Scanner("Cooking",
+    #                           "CookingStatsBot",
+    #                           DEBUG_POSTS_TO_SCAN,
+    #                           DEBUG_SLEEP_TIME)
     scanner_list.append(alphabet_scanner)
-    scanner_list.append(cooking_scanner)
+    # scanner_list.append(cooking_scanner)
 else:
     cooking_scanner = Scanner("Cooking",
                               "CookingStatsBot",
                               NUM_POSTS_TO_SCAN,
                               SLEEP_TIME_SECONDS)
+    learnpython_scanner = Scanner("learnpython",
+                                  "CookingStatsBot",
+                                  NUM_POSTS_TO_SCAN,
+                                  SLEEP_TIME_SECONDS)
+    scanner_list.append(learnpython_scanner)
     scanner_list.append(cooking_scanner)
 
 
@@ -83,12 +91,13 @@ def edit_flair(obj, scanner: Scanner) -> bool:
         prev_month = int(datetime.datetime.today().month) - 1
         set_flair_template_ids(scanner.sub_instance)
 
-        # this deletes the flair for all users of a subreddit!
         if ARGS.debug is None:
-            scanner.sub_instance.flair.delete_all()
-            for i in range(0, len(ratios_arr)):
-                scanner.sub_instance.flair.set(ratios_arr[i][NAME_IDX],
-                                               flair_template_id=MONTHS[prev_month][FLAIR_TEMPLATE_ID_IDX])
+            # this deletes the flair for all users of a subreddit!
+            # scanner.sub_instance.flair.delete_all()
+            # for i in range(0, len(ratios_arr)):
+            #     scanner.sub_instance.flair.set(ratios_arr[i][NAME_IDX],
+            #                                    flair_template_id=MONTHS[prev_month][FLAIR_TEMPLATE_ID_IDX])
+            pass
         else:
             print("Debug output only, no flair has been changed")
             for i in range(0, len(ratios_arr)):
@@ -97,7 +106,7 @@ def edit_flair(obj, scanner: Scanner) -> bool:
                       " for " +
                       MONTHS[prev_month][FLAIR_TEMPLATE_ID_IDX])
 
-    edit_wiki(ratios_arr, is_new_month, scanner)
+    # edit_wiki(ratios_arr, is_new_month, scanner)
     upload_file_to_ftp_server(scanner.sub_name + ".json")
     return is_new_month
 
@@ -154,6 +163,9 @@ def get_ratios_array(totals_arr: List[list]) -> List[list]:
         A list of lists, where each inner list contains the username and average
         score for a user.
     """
+    # TODO Find the top 1% highest number of total comments,
+    #  then calculate the percentage of negative comments from these comments,
+    #  then find the top 1% of that.
     ratio_arr = []
     top_1_percent = math.ceil(len(totals_arr) * 0.01)  # ceil ensures we always have at least 1 entry in the list
     for i in range(0, top_1_percent):
@@ -169,7 +181,7 @@ def get_ratios_array(totals_arr: List[list]) -> List[list]:
 def set_flair_template_ids(sub_instance) -> None:
     """Assigns a user flair template ID to the corresponding month in the MONTHS list.
 
-    Each subbredit must maintain a unique user flair template that contains the matching string for each month. If we
+    Each subreddit must maintain a unique user flair template that contains the matching string for each month. If we
     don't want to include the name of the month in each flair, then this is all unnecessary. If there is no matching
     user flair template, then no user flair will be applied.
 
@@ -345,6 +357,7 @@ def sleep(scanner: Scanner) -> None:
     Returns:
       None.
     """
+    # FIXME the sleep time is 0.0 hours when you run the scanner with a 1-hour sleep time
     sleep_string = time.strftime("%H:%M:%S")
     first_pass_done = True
     cumulative_avg_runtime = 0
@@ -430,39 +443,43 @@ def main():
                 total_posts = 0
                 total_comments = 0
                 file_name = scanner.sub_name + ".json"
-                create_file(file_name, False, "{\"users\":{}}")
+                create_file(file_name, False, "{\"users\":{},\"timestamp\":[]}")
 
                 # we don't need a try/catch here because create_file guarantees the file exists
                 with open(file_name, "r+") as f:
                     obj = json.load(f)
                     start_seconds = time.perf_counter()
 
-                    for submission in scanner.sub_instance.hot(limit=scanner.num_posts_to_scan):
+                    try:
+                        for submission in scanner.sub_instance.hot(limit=scanner.num_posts_to_scan):
+                            # scan each post from the top down when sorted by "hot"
+                            if submission.stickied is False:
+                                total_posts += 1
+                                submission.comments.replace_more(limit=0)
 
-                        # scan each post from the top down when sorted by "hot"
-                        if submission.stickied is False:
-                            total_posts += 1
-                            submission.comments.replace_more(limit=0)
+                                for comment in submission.comments:
+                                    # scan each top-level comment
+                                    if not comment.distinguished:
+                                        user_id = str(comment.author)
+                                        total_comments += 1
+                                        # FIXME this does not print in Docker logs
+                                        print("\r", "Began scanning submission ID " + str(submission.id) +
+                                              ", total Comments Scanned: " +
+                                              str(total_comments), end="")
+                                        if user_id != "None":
+                                            if user_exists(obj, user_id):
+                                                update_existing(obj, comment, user_id)
+                                            else:
+                                                add_new(obj, comment)
+                                    time.sleep(0.1)  # avoids HTTP 429 errors
 
-                            for comment in submission.comments:
-                                # scan each top-level comment
-                                if not comment.distinguished:
-                                    user_id = str(comment.author)
-                                    total_comments += 1
-                                    # FIXME this does not print in Docker logs
-                                    print("\r", "Began scanning submission ID " + str(submission.id) +
-                                          ", total Comments Scanned: " +
-                                          str(total_comments), end="")
-                                    if user_id != "None":
-                                        if user_exists(obj, user_id):
-                                            update_existing(obj, comment, user_id)
-                                        else:
-                                            add_new(obj, comment)
-                                time.sleep(0.1)  # avoids HTTP 429 errors
+                                # DONE scanning all comments in post
 
-                            # DONE scanning all comments in post
-
-                        time.sleep(0.1)  # avoids HTTP 429 errors
+                            time.sleep(0.1)  # avoids HTTP 429 errors
+                        obj["timestamp"] = str(datetime.datetime.utcnow())
+                    except prawcore.exceptions.ServerError as e:
+                        # this will catch HTTP server errors from Reddit's servers
+                        print(e)
 
                 # DONE scanning all posts in subreddit, moving on to next scanner in the list, but first...
                 seconds_elapsed += time.perf_counter() - start_seconds

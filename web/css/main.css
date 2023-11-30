@@ -352,6 +352,8 @@ textarea {
   flex-direction: column;
   width: 95%;
   max-width: 95%;
+  max-height: calc(100vh - 300px); /* FIXME using a static 300px is not the best way to do this */
+  overflow: scroll;
 }
 
 #search-box {
@@ -393,6 +395,9 @@ th {
 }
 
 #output-table tr.header, #output-table tr:hover {
-  /* Add a grey background color to the table header and on hover */
   background-color: #FF5700;
+}
+
+body.waiting * {
+  cursor: wait;
 }

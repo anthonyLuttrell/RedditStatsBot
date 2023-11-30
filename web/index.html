@@ -28,22 +28,22 @@
     <span id="header-span" class="header-text">reddit stats bot</span>
   </div>
   <div class="body">
-    <div class="select-div">
+    <div class="select-div" id="select-subreddits-div">
       <select id="subreddits-select" class="select-box" onchange="displayAllUsers(this.value);">
         <option value="0">-- Select a Subreddit --</option>
       </select>
     </div>
-    <div class="search-div">
+    <div class="search-div" id="search-username-div">
       <input type="text" id="search-box" onkeyup="filterInput()" placeholder="Search for username...">
     </div>
-    <div class="table-div">
+    <div class="table-div" id="output-table-div">
       <table id="output-table">
         <thead>
         <tr class="header">
-          <th style="width:33%;" onclick="sortTable(0)">User</th>
-          <th style="width:22.3%;" onclick="sortTable(1)">Comments</th>
-          <th style="width:22.3%;" onclick="sortTable(2)">Score</th>
-          <th style="width:22.3%;" onclick="sortTable(3)">Negs</th>
+          <th style="width:33%;" onclick="sortTableRowsByColumn(0)">User</th>
+          <th style="width:22.3%;" onclick="sortTableRowsByColumn(1)">Comments</th>
+          <th style="width:22.3%;" onclick="sortTableRowsByColumn(2)">Score</th>
+          <th style="width:22.3%;" onclick="sortTableRowsByColumn(3)">Negs</th>
         </tr>
         </thead>
         <tbody>
@@ -52,8 +52,8 @@
       </table>
     </div>
   </div>
-  <div class="footer">
-    <span id="footer-span" class="footer-text">Last updated:</span>
+  <div class="footer" id="footer-div">
+    <span id="footer-span" class="footer-text"></span>
   </div>
   <script src="js/vendor/modernizr-3.11.2.min.js"></script>
   <script src="js/plugins.js"></script>

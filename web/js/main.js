@@ -92,7 +92,7 @@ function displayAllUsers(value)
     }
 
     const table = document.getElementById("output-table").getElementsByTagName("tbody")[0];
-    const footerText = document.getElementById("footer-span");
+    const footerText = document.getElementById("footer-timestamp");
     const subsArr = sessionStorage.getItem(SUBS_KEY).split(",");
     const users = JSON.parse(sessionStorage.getItem(subsArr[value - 1]));
     const totalsArray = getTotalsArray(users);

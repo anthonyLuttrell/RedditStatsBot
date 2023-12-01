@@ -306,12 +306,13 @@ textarea {
 }
 
 .footer-text {
-  font-size: medium;
+  color: #222222;
+  font-size: x-small;
 }
 
 .footer {
   display: flex;
-  flex-flow: row nowrap;
+  flex-flow: column nowrap;
   justify-content: center;
   align-items: center;
   height: 50px;
@@ -320,10 +321,6 @@ textarea {
 
 .header-text {
   color: white;
-}
-
-.footer-text {
-  color: #222222;
 }
 
 .select-div {

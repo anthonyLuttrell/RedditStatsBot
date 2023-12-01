@@ -7,12 +7,16 @@ import time
 from typing import List
 import praw.models
 import prawcore.exceptions
-
 from Scanner import Scanner
 from args import get_args
 from ftp import send_file
+from scanner_list import build_scanner_list
+from scanner_list import get_scanner_list
+from scanner_list import get_cumulative_avg_runtime
+from scanner_list import first_pass_completed
+# FIXME fix this import mess, ugh.
+# FIXME all of the .json files should go into a separate directory
 
-# TODO implement a read-only mode
 # ************************************************* GLOBAL CONSTANTS ************************************************* #
 MONTHS = [
     ['December', ''],
@@ -36,78 +40,6 @@ TOTAL_COMMENTS_IDX = 1
 AVG_SCORE_IDX = 1
 TOTAL_SCORE_IDX = 2
 NEG_COMMENTS_IDX = 3
-NUM_POSTS_TO_SCAN = 100
-SLEEP_TIME_SECONDS = 600  # 6 hours 21600
-DEBUG_POSTS_TO_SCAN = ARGS.posts
-DEBUG_SLEEP_TIME = 30
-scanner_list = []
-
-if ARGS.debug is not None:
-    alphabet_scanner = Scanner("alphabetbot",
-                               "CookingStatsBot",
-                               DEBUG_POSTS_TO_SCAN,
-                               DEBUG_SLEEP_TIME)
-    # cooking_scanner = Scanner("Cooking",
-    #                           "CookingStatsBot",
-    #                           DEBUG_POSTS_TO_SCAN,
-    #                           DEBUG_SLEEP_TIME)
-    scanner_list.append(alphabet_scanner)
-    # scanner_list.append(cooking_scanner)
-else:
-    # cooking_scanner = Scanner("Cooking",
-    #                           "CookingStatsBot",
-    #                           NUM_POSTS_TO_SCAN,
-    #                           SLEEP_TIME_SECONDS)
-    learnpython_scanner = Scanner("learnpython",
-                                  "CookingStatsBot",
-                                  NUM_POSTS_TO_SCAN,
-                                  SLEEP_TIME_SECONDS)
-    askculinary_scanner = Scanner("AskCulinary",
-                                  "CookingStatsBot",
-                                  NUM_POSTS_TO_SCAN,
-                                  SLEEP_TIME_SECONDS)
-    cookingforbeginners_scanner = Scanner("cookingforbeginners",
-                                          "CookingStatsBot",
-                                          NUM_POSTS_TO_SCAN,
-                                          SLEEP_TIME_SECONDS)
-    askbaking_scanner = Scanner("askbaking",
-                                          "CookingStatsBot",
-                                          NUM_POSTS_TO_SCAN,
-                                          SLEEP_TIME_SECONDS)
-    baking_scanner = Scanner("baking",
-                                          "CookingStatsBot",
-                                          NUM_POSTS_TO_SCAN,
-                                          SLEEP_TIME_SECONDS)
-    breadit_scanner = Scanner("breadit",
-                                          "CookingStatsBot",
-                                          NUM_POSTS_TO_SCAN,
-                                          SLEEP_TIME_SECONDS)
-    askmen_scanner = Scanner("askmen",
-                                          "CookingStatsBot",
-                                          NUM_POSTS_TO_SCAN,
-                                          SLEEP_TIME_SECONDS)
-    learnprogramming_scanner = Scanner("learnprogramming",
-                                          "CookingStatsBot",
-                                          NUM_POSTS_TO_SCAN,
-                                          SLEEP_TIME_SECONDS)
-    funny_scanner = Scanner("funny",
-                                          "CookingStatsBot",
-                                          NUM_POSTS_TO_SCAN,
-                                          SLEEP_TIME_SECONDS)
-    chicago_scanner = Scanner("chicago",
-                                          "CookingStatsBot",
-                                          NUM_POSTS_TO_SCAN,
-                                          SLEEP_TIME_SECONDS)
-    scanner_list.append(learnpython_scanner)
-    scanner_list.append(askculinary_scanner)
-    scanner_list.append(askbaking_scanner)
-    scanner_list.append(baking_scanner)
-    scanner_list.append(breadit_scanner)
-    scanner_list.append(askmen_scanner)
-    scanner_list.append(learnprogramming_scanner)
-    scanner_list.append(funny_scanner)
-    scanner_list.append(chicago_scanner)
-    # scanner_list.append(cooking_scanner)
 
 
 def edit_flair(obj, scanner: Scanner) -> bool:
@@ -300,8 +232,11 @@ def edit_wiki(ratio_arr: list, new_month: bool, scanner: Scanner) -> None:
             wiki_content += f"\n\n{str(i + 1)}. {ratio_arr[i][0]} [ average score: {str(ratio_arr[i][1])} ]"
         if ARGS.debug is None and scanner.is_mod:
             try:
-                scanner.sub_instance.wiki[scanner.bot_name + "/" + reason_string].edit(content=wiki_content,
-                                                                                   reason=reason_string)
+                scanner.sub_instance.wiki[
+                    scanner.bot_name +
+                    "/" +
+                    reason_string
+                ].edit(content=wiki_content, reason=reason_string)
             except prawcore.exceptions.NotFound as e:
                 print(f"{e}: Could not edit Wiki page on {scanner.sub_name}")
         else:
@@ -313,8 +248,8 @@ def edit_wiki(ratio_arr: list, new_month: bool, scanner: Scanner) -> None:
 def upload_file_to_ftp_server(file_name):
     try:
         send_file(file_name)
-    except:
-        print("Unable to upload file")
+    except (Exception,) as e:
+        print(f"{e}: Unable to upload file")
 
 
 def user_exists(obj: dict, user_id_to_check: str) -> bool:
@@ -384,20 +319,20 @@ def add_new(obj: dict, comment_to_add: praw.models.Comment) -> None:
                                                 "commentScore": [comment_to_add.score]}
 
 
-def sleep(scanner: Scanner) -> None:
+def sleep(scanner: Scanner, num_of_scanners: int) -> None:
     """Puts the program to sleep for a calculated amount of time.
 
-    We want each scanner to run four times per day, so that means it must complete one iteration every six hours
-    (24 / 4 = 6). We must consider the runtime for each scanner to ensure each scanner can finish within this six-hour
-    window. To calculate the sleep time for each scanner, we start with six hours and subtract its average runtime, and
-    then subtract the total cumulative average runtime for all scanners. For example:
+    We want each scanner to run four times per day, so that means it must complete one iteration every six hours. We
+    must consider the avg_runtime_of_all_scanners for each scanner to ensure each scanner can finish within this six-hour window. To
+    calculate the sleep time for each scanner, we start with six hours and subtract its average avg_runtime_of_all_scanners, and then
+    subtract the total cumulative average avg_runtime_of_all_scanners for all scanners. For example:
 
-    Scanner 1 average runtime =  900 seconds
-    Scanner 2 average runtime = 2268 seconds
-    Scanner 3 average runtime = 2088 seconds
+    Scanner 1 average avg_runtime_of_all_scanners =  900 seconds
+    Scanner 2 average avg_runtime_of_all_scanners = 2268 seconds
+    Scanner 3 average avg_runtime_of_all_scanners = 2088 seconds
 
-    total cumulative runtime = 5256 seconds
-    average total cumulative runtime = (5256 / 3) = 1752 seconds
+    total cumulative avg_runtime_of_all_scanners = 5256 seconds
+    average total cumulative avg_runtime_of_all_scanners = (5256 / 3) = 1752 seconds
 
     Scanner 1 sleep time = (21600 -  900 - 1752) = 18948 seconds (5.26 hours)
     Scanner 2 sleep time = (21600 - 2268 - 1752) = 17580 seconds (4.88 hours)
@@ -405,41 +340,43 @@ def sleep(scanner: Scanner) -> None:
 
     Args:
       scanner: The Scanner object that we want to put to sleep after it has completed one iteration.
+      num_of_scanners: The length of scanner_list
 
     Returns:
       None.
     """
-    # FIXME the sleep time is 0.0 hours when you run the scanner with a 1-hour sleep time
     sleep_string = time.strftime("%H:%M:%S")
     date_time = datetime.datetime.now()
-    date_time.replace(microsecond=round(date_time.microsecond, -3))
-    first_pass_done = True
-    cumulative_avg_runtime = 0
-    for temp_scanner in scanner_list:
-        avg_runtime = temp_scanner.get_avg_runtime_seconds()
-        if avg_runtime == 0:
-            # Each scanner keeps an array of average runtimes. If any of the
-            # averages are 0, that means that scanner has NOT completed a scan.
-            first_pass_done = False
-        cumulative_avg_runtime += avg_runtime
-
-    # this allows each scanner to run to completion before we use cumulative_avg_runtime
-    runtime = cumulative_avg_runtime / len(scanner_list)
-    individual_avg_runtime = runtime if first_pass_done else scanner.get_avg_runtime_seconds()
+    cumulative_avg_runtime = get_cumulative_avg_runtime()
+    avg_runtime_of_all_scanners = cumulative_avg_runtime / num_of_scanners
 
     # There should be no sleep time between scanners until all have completed
-    # their first scan. Also, when scanner.sleep_seconds is very small (when
-    # debugging), this can be negative, so we set it to 1 for both of these.
-    sleep_sec = round(scanner.sleep_seconds - scanner.get_avg_runtime_seconds() - cumulative_avg_runtime)
-    sleep_time_seconds = 1 if sleep_sec < 0 or not first_pass_done else sleep_sec
+    # their first scan. Also, when scanner.interval_seconds is insufficiently
+    # short (it should always be greater than sum of the average runtime and the
+    # cumulative average runtime), this can be negative, so we set it to 1 for
+    # both of these cases.
 
-    max_scanners = cumulative_avg_runtime / individual_avg_runtime
+    adjusted_interval = round(
+        scanner.interval_seconds -
+        scanner.get_avg_runtime_seconds() -
+        cumulative_avg_runtime
+    )
 
-    if len(scanner_list) > max_scanners and first_pass_done:
-        print(f"You have exceeded the recommended number of scanners: {max_scanners},\n currently using {len(scanner_list)} scanners.\n Some scanners may not finish within {SLEEP_TIME_SECONDS / 60 / 60} hours!")
-    # TODO can we provide a more accurate wake time here?
+    sleep_time_seconds = adjusted_interval if (
+            adjusted_interval >= 0 and first_pass_completed()
+    ) else 1
+
+    # We must maintain an `avg_runtime_of_all_scanners` that is shorter than
+    # our `available_sleep_time`, or else scanners will take longer than
+    # `scanner.interval_seconds` to complete each pass.
+
+    available_sleep_time = scanner.interval_seconds - sleep_time_seconds
+    if avg_runtime_of_all_scanners >= available_sleep_time and first_pass_completed():
+        print(f"Some scanners may not finish within {scanner.interval_seconds / 60 / 60} hours!")
+
     sleep_time_string = date_time + datetime.timedelta(seconds=sleep_time_seconds)
     print(f"Sleeping since {sleep_string}, waking up at {str(sleep_time_string.time())}")
+
     time.sleep(sleep_time_seconds)
 
 
@@ -475,6 +412,7 @@ def create_file(file_name: str, debug_ftp: bool, content: str):
         else:
             with open(file_name, "a") as f:
                 if debug_ftp:
+                    # TODO can we get ride of the debug_ftp part?
                     f.write(
                         "{\"users\":{\"96dpi\":{\"commentId\":[\"asdfqwer\",\"jhkjer8f\"],\"commentScore\":[12, 1]}}}")
                 else:
@@ -485,13 +423,21 @@ def create_file(file_name: str, debug_ftp: bool, content: str):
         sys_exit()
 
 
-def main():
+def build_subreddit_list(scanner_list):
     sub_list = {"subs": []}
+    temp_sub_list = []
     for scanner in scanner_list:
-        sub_list["subs"].append(scanner.sub_name)
+        temp_sub_list.append(scanner.sub_name)
+    temp_sub_list.sort(key=str.lower)
+    sub_list["subs"] = temp_sub_list
     json_sub_list = json.dumps(sub_list)
     create_file("subreddits.json", False, str(json_sub_list))
     send_file("subreddits.json")
+
+
+def main():
+    scanner_list = get_scanner_list()
+    build_subreddit_list(scanner_list)
     while True:
         try:
             for scanner in scanner_list:
@@ -546,8 +492,10 @@ def main():
 
                 # update current day before we go to edit_flair
                 scanner.previous_day = ARGS.day if ARGS.day > 0 else datetime.datetime.today().day
+                scanner.first_pass_done = True
 
                 if edit_flair(obj, scanner):
+                    # FIXME this is confusing, the return value of edit_flair should be obvious
                     # clear out the comment log at the beginning of each month
                     obj["users"] = {}
 
@@ -557,9 +505,9 @@ def main():
                         f.seek(0)
                         json.dump(obj, f, indent=2)
                     upload_file_to_ftp_server(file_name)
-                    sleep(scanner)
+                    sleep(scanner, len(scanner_list))
                 except FileNotFoundError:
-                    print("File Not Found, exiting.")
+                    print("File Not Found, moving to next scanner.")
                     sys_exit()
 
             # END for-each scanner loop
@@ -578,6 +526,5 @@ def main():
 
 
 if __name__ == "__main__":
+    build_scanner_list()
     main()
-    # create_file("test_file.json", True, "")
-    # send_file("test_file.json")

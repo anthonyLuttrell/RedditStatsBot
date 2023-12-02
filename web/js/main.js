@@ -56,10 +56,18 @@ async function saveUserData()
     {
         const path = JSON_PATH + sub + JSON_QUERY;
         const response = await fetch(path);
-        const data = await response.json()
+        const data = await response.json();
         // make sure to use JSON.parse when parsing this data in session storage
-        sessionStorage.setItem(sub, JSON.stringify(data));
-        sessionStorage.setItem(sub + "-timestamp", JSON.stringify(data.timestamp))
+        try
+        {
+            sessionStorage.setItem(sub, JSON.stringify(data));
+            sessionStorage.setItem(sub + "-timestamp", JSON.stringify(data.timestamp));
+        }
+        catch (DOMException)
+        {
+            console.warn("SessionStorage is full! " + DOMException);
+            break;
+        }
     }
 }
 

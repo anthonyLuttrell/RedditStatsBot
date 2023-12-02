@@ -22,7 +22,7 @@ class Scanner:
         self.interval_seconds = interval_sec
         self.bot_name = bot_name
         self.sub_instance = self.get_subreddit_instance()
-        self.is_mod = self.check_mod_invite()
+        self.is_mod = self.check_mod_invite()  # FIXME this is wrong, https://praw.readthedocs.io/en/stable/code_overview/other/moderatorrelationship.html
         self.individual_avg_runtime_seconds = []
         self.first_pass_done = False
 

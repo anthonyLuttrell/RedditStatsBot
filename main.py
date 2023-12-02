@@ -1,23 +1,20 @@
+import praw.models
+import prawcore.exceptions
 import datetime
 import json
 import math
 import os
 import sys
 import time
+import ftp
+import scanner_pool
 from typing import List
-import praw.models
-import prawcore.exceptions
 from Scanner import Scanner
 from args import get_args
-from ftp import send_file
-from scanner_list import build_scanner_list
-from scanner_list import get_scanner_list
-from scanner_list import get_cumulative_avg_runtime
-from scanner_list import first_pass_completed
-# FIXME fix this import mess, ugh.
-# FIXME all of the .json files should go into a separate directory
 
 # ************************************************* GLOBAL CONSTANTS ************************************************* #
+# We get the previous month by subtracting 1, so December must be before
+# January, and the 12th month must be None, so we can reference November.
 MONTHS = [
     ['December', ''],
     ['January', ''],
@@ -31,7 +28,7 @@ MONTHS = [
     ['September', ''],
     ['October', ''],
     ['November', ''],
-    None]  # we get the previous month by subtracting 1, so December must be before January.
+    None]
 
 ARGS = get_args()
 NAME_IDX = 0
@@ -42,7 +39,7 @@ TOTAL_SCORE_IDX = 2
 NEG_COMMENTS_IDX = 3
 
 
-def edit_flair(obj, scanner: Scanner) -> bool:
+def edit_flair(obj: dict, scanner: Scanner) -> None:
     """Deletes and sets user flair, then updates the wiki pages.
 
     We determine when it is a new month when the previous_day is greater than today's day (when 31 rolls back to 1). If
@@ -59,33 +56,33 @@ def edit_flair(obj, scanner: Scanner) -> bool:
       is_new_month:
         A bool that is true after the first iteration of the main loop on the first day of the month.
     """
-    is_new_month = scanner.previous_day > int(datetime.datetime.today().day)
     totals_arr = get_totals_array(obj)
     ratios_arr = get_ratios_array(totals_arr)
+    prev_month = int(datetime.datetime.today().month) - 1
+    set_flair_template_ids(scanner.sub_instance)
 
-    if is_new_month and scanner.is_mod:
-        prev_month = int(datetime.datetime.today().month) - 1
-        set_flair_template_ids(scanner.sub_instance)
+    if ARGS.debug is None:
+        # this deletes the flair for all users of a subreddit!
+        # these operations can take several seconds to complete
+        scanner.sub_instance.flair.delete_all()
+        for i in range(0, len(ratios_arr)):
+            scanner.sub_instance.flair.set(
+                ratios_arr[i][NAME_IDX],
+                flair_template_id=MONTHS[prev_month][FLAIR_TEMPLATE_ID_IDX]
+            )
+    else:
+        print("Debug output only, no flair has been changed")
+        for i in range(0, len(ratios_arr)):
+            print("Flair updated for: " +
+                  ratios_arr[i][NAME_IDX] +
+                  " for " +
+                  MONTHS[prev_month][FLAIR_TEMPLATE_ID_IDX])
 
-        if ARGS.debug is None:
-            # this deletes the flair for all users of a subreddit!
-            scanner.sub_instance.flair.delete_all()
-            for i in range(0, len(ratios_arr)):
-                scanner.sub_instance.flair.set(ratios_arr[i][NAME_IDX],
-                                               flair_template_id=MONTHS[prev_month][FLAIR_TEMPLATE_ID_IDX])
-        else:
-            print("Debug output only, no flair has been changed")
-            for i in range(0, len(ratios_arr)):
-                print("Flair updated for: " +
-                      ratios_arr[i][NAME_IDX] +
-                      " for " +
-                      MONTHS[prev_month][FLAIR_TEMPLATE_ID_IDX])
-
-    edit_wiki(ratios_arr, is_new_month, scanner)
-    return is_new_month
+    # clear out the comment log at the beginning of each month
+    obj["users"] = {}
 
 
-def get_totals_array(users_obj) -> List[list]:
+def get_totals_array(users_obj: dict) -> List[list]:
     """Builds and sorts the totals array.
 
     Loop through the users_obj, adding up the total number of comments, the total score, and the total number of
@@ -152,7 +149,7 @@ def get_ratios_array(totals_arr: List[list]) -> List[list]:
     return ratio_arr
 
 
-def set_flair_template_ids(sub_instance) -> None:
+def set_flair_template_ids(sub_instance: praw.models.Subreddit) -> None:
     """Assigns a user flair template ID to the corresponding month in the MONTHS list.
 
     Each subreddit must maintain a unique user flair template that contains the matching string for each month. If we
@@ -185,7 +182,7 @@ def set_flair_template_ids(sub_instance) -> None:
         print(f"User Flair template list is missing {str(missing_months)} month(s)")
 
 
-def edit_wiki(ratio_arr: list, new_month: bool, scanner: Scanner) -> None:
+def edit_wiki(ratio_arr: list, scanner: Scanner) -> None:
     """Edit the subreddit's wiki page.
 
     The wiki page is edited under two conditions:
@@ -198,56 +195,36 @@ def edit_wiki(ratio_arr: list, new_month: bool, scanner: Scanner) -> None:
 
     Args:
         ratio_arr: A list of lists containing the username and average score for each user.
-        new_month: A boolean indicating whether it is the first iteration of the main loop on the 1st day of the month.
         scanner: The Scanner object that we are currently working on.
 
     Returns:
         None.
     """
-    if new_month:
-        month_string = MONTHS[int(datetime.datetime.today().month) - 1][NAME_IDX]
-        reason_string = month_string + "'s Top 1% update"
-        wiki_content = ("Top 1% Most Helpful Users of " + month_string)
-
-        for i in range(0, len(ratio_arr)):
-            wiki_content += f"\n\n{str(i + 1)}. {ratio_arr[i][0]} [ average score: {str(ratio_arr[i][1])} ]"
-
-        # this will add a new revision to an existing page, or create the page if it doesn't exist
-        if ARGS.debug is None and scanner.is_mod:
-            try:
-                scanner.sub_instance.wiki[scanner.bot_name].edit(content=wiki_content, reason=reason_string)
-            except prawcore.exceptions.NotFound as e:
-                print(f"{e}: Could not edit Wiki page on {scanner.sub_name}, does {scanner.bot_name} have wiki edit permissions?")
-        else:
-            # print("Wiki destination: " + scanner.bot_name)
-            # print(wiki_content)
-            pass
-    else:
-        trimmed_timestamp = datetime.datetime.utcnow()
-        trimmed_timestamp.replace(microsecond=round(trimmed_timestamp.microsecond, -3))
-        wiki_content = "Last updated (UTC): " + str(trimmed_timestamp)
-        reason_string = "6-hour-update"
-        for i in range(0, len(ratio_arr)):
-            # FIXME some duplicate code here we can get rid of
-            wiki_content += f"\n\n{str(i + 1)}. {ratio_arr[i][0]} [ average score: {str(ratio_arr[i][1])} ]"
-        if ARGS.debug is None and scanner.is_mod:
-            try:
-                scanner.sub_instance.wiki[
-                    scanner.bot_name +
-                    "/" +
-                    reason_string
+    trimmed_timestamp = datetime.datetime.utcnow()
+    # FIXME I don't think this is actually doing anything
+    trimmed_timestamp.replace(microsecond=round(trimmed_timestamp.microsecond, -3))
+    wiki_content = "Last updated (UTC): " + str(trimmed_timestamp)
+    reason_string = "6-hour-update"
+    for i in range(0, len(ratio_arr)):
+        wiki_content += f"\n\n{str(i + 1)}. {ratio_arr[i][0]} [ average score: {str(ratio_arr[i][1])} ]"
+    if ARGS.debug is None and scanner.is_mod:
+        try:
+            scanner.sub_instance.wiki[
+                scanner.bot_name +
+                "/" +
+                reason_string
                 ].edit(content=wiki_content, reason=reason_string)
-            except prawcore.exceptions.NotFound as e:
-                print(f"{e}: Could not edit Wiki page on {scanner.sub_name}")
-        else:
-            # print("Wiki destination: " + scanner.bot_name + "/" + reason_string)
-            # print(wiki_content)
-            pass
+        except prawcore.exceptions.NotFound as e:
+            print(f"{e}: Could not edit Wiki page on {scanner.sub_name}")
+    else:
+        # print("Wiki destination: " + scanner.bot_name + "/" + reason_string)
+        # print(wiki_content)
+        pass
 
 
-def upload_file_to_ftp_server(file_name):
+def upload_file_to_ftp_server(file_name: str) -> None:
     try:
-        send_file(file_name)
+        ftp.send_file(file_name)
     except (Exception,) as e:
         print(f"{e}: Unable to upload file")
 
@@ -319,60 +296,58 @@ def add_new(obj: dict, comment_to_add: praw.models.Comment) -> None:
                                                 "commentScore": [comment_to_add.score]}
 
 
-def sleep(scanner: Scanner, num_of_scanners: int) -> None:
+def sleep(scanner: Scanner) -> None:
     """Puts the program to sleep for a calculated amount of time.
 
     We want each scanner to run four times per day, so that means it must complete one iteration every six hours. We
-    must consider the avg_runtime_of_all_scanners for each scanner to ensure each scanner can finish within this six-hour window. To
-    calculate the sleep time for each scanner, we start with six hours and subtract its average avg_runtime_of_all_scanners, and then
-    subtract the total cumulative average avg_runtime_of_all_scanners for all scanners. For example:
+    must consider the average runtime for all scanners to ensure each scanner can finish within this six-hour window. To
+    calculate the sleep time for each scanner, we start with 6 hours and subtract the cumulative average runtime of all
+    scanners. For example:
 
-    Scanner 1 average avg_runtime_of_all_scanners =  900 seconds
-    Scanner 2 average avg_runtime_of_all_scanners = 2268 seconds
-    Scanner 3 average avg_runtime_of_all_scanners = 2088 seconds
+    Scanner 1 average runtime =  900 seconds
+    Scanner 2 average runtime = 2268 seconds
+    Scanner 3 average runtime = 2088 seconds
 
-    total cumulative avg_runtime_of_all_scanners = 5256 seconds
-    average total cumulative avg_runtime_of_all_scanners = (5256 / 3) = 1752 seconds
+    cumulative average runtime of all scanners = 5256 seconds
 
-    Scanner 1 sleep time = (21600 -  900 - 1752) = 18948 seconds (5.26 hours)
-    Scanner 2 sleep time = (21600 - 2268 - 1752) = 17580 seconds (4.88 hours)
-    Scanner 2 sleep time = (21600 - 2088 - 1752) = 17760 seconds (4.93 hours)
+    Scanner 1 sleep time = (21600 - 5256) = 16344 seconds (4.54 hours)
+    Scanner 2 sleep time = (21600 - 2268) = 19332 seconds (5.37 hours)
+    Scanner 2 sleep time = (21600 - 2088) = 19512 seconds (5.42 hours)
+
+    The higher the cumulative average runtime gets, the lower the sleep time gets. The closer it gets to 0, the less
+    likely it is for each scanner to finish one loop every 6 hours.
 
     Args:
       scanner: The Scanner object that we want to put to sleep after it has completed one iteration.
-      num_of_scanners: The length of scanner_list
 
     Returns:
       None.
     """
     sleep_string = time.strftime("%H:%M:%S")
     date_time = datetime.datetime.now()
-    cumulative_avg_runtime = get_cumulative_avg_runtime()
-    avg_runtime_of_all_scanners = cumulative_avg_runtime / num_of_scanners
+    sleep_time_seconds = 1
+    """
+    `sleep_time_seconds` should be `1` in two cases: 
+         1.  Until every scanner has completed one pass.
+         2.  If the cumulative average runtimes is greater than the supplied scanner's interval. 
+    
+    If the `adjusted_scanner_interval` is still negative after each scanner has 
+    finished one pass, scanners will take longer than `scanner.interval_seconds` 
+    to complete each pass, and we should print a warning.
+    """
+    adjusted_scanner_interval = scanner.interval_seconds - scanner_pool.get_cumulative_avg_runtime()
 
-    # There should be no sleep time between scanners until all have completed
-    # their first scan. Also, when scanner.interval_seconds is insufficiently
-    # short (it should always be greater than sum of the average runtime and the
-    # cumulative average runtime), this can be negative, so we set it to 1 for
-    # both of these cases.
+    if adjusted_scanner_interval < get_variance(scanner) and scanner_pool.first_pass_completed():
+        print(f"Some scanners may not finish within {round(scanner.interval_seconds / 60 / 60, 2)} hours!")
+    elif scanner_pool.first_pass_completed():
+        sleep_time_seconds = adjusted_scanner_interval
 
-    adjusted_interval = round(
-        scanner.interval_seconds -
-        scanner.get_avg_runtime_seconds() -
-        cumulative_avg_runtime
-    )
-
-    sleep_time_seconds = adjusted_interval if (
-            adjusted_interval >= 0 and first_pass_completed()
-    ) else 1
-
-    # We must maintain an `avg_runtime_of_all_scanners` that is shorter than
-    # our `available_sleep_time`, or else scanners will take longer than
-    # `scanner.interval_seconds` to complete each pass.
-
-    available_sleep_time = scanner.interval_seconds - sleep_time_seconds
-    if avg_runtime_of_all_scanners >= available_sleep_time and first_pass_completed():
-        print(f"Some scanners may not finish within {scanner.interval_seconds / 60 / 60} hours!")
+    if ARGS.debug is not None:
+        print(f" Current scanner's runtime = {scanner.individual_avg_runtime_seconds[-1]}")
+        print(f"Cumulative average runtime = {str(scanner_pool.get_cumulative_avg_runtime())}")
+        print(f" Adjusted scanner interval = {adjusted_scanner_interval}")
+        print(f"                  Variance = {get_variance(scanner)}")
+        print(f"        Sleep time seconds = {sleep_time_seconds}")
 
     sleep_time_string = date_time + datetime.timedelta(seconds=sleep_time_seconds)
     print(f"Sleeping since {sleep_string}, waking up at {str(sleep_time_string.time())}")
@@ -380,7 +355,17 @@ def sleep(scanner: Scanner, num_of_scanners: int) -> None:
     time.sleep(sleep_time_seconds)
 
 
-def sys_exit():
+def get_variance(scanner: Scanner) -> float:
+    """Returns the variance between all the average scanner runtimes."""
+    vari_min = min(scanner_pool.cumulative_avg_runtime_list)
+    vari_max = max(scanner_pool.cumulative_avg_runtime_list)
+    vari_avg = sum(scanner_pool.cumulative_avg_runtime_list) / len(scanner_pool.cumulative_avg_runtime_list)
+    vari_dif = vari_max - vari_min
+    vari_pct = vari_dif / vari_avg
+    return scanner.individual_avg_runtime_seconds[-1] * vari_pct
+
+
+def sys_exit() -> None:
     """Performs a graceful program termination for Windows and Linux systems.
 
     Args:
@@ -395,48 +380,50 @@ def sys_exit():
         os.system(exit(130))
 
 
-def create_file(file_name: str, debug_ftp: bool, content: str):
+def create_file(file_name: str, content: str) -> None:
     """Creates the files if they don't exist.
 
     Args:
-      file_name: The name of the json file, should match the sub's name.
-      debug_ftp: True if you are sending a test file to the FTP server.
-      content: A JSON-syntax string that will fill the file.
+      file_name: 
+        The name of the json file, should match the sub's name.
+      content: 
+        A JSON-syntax string that will fill the file.
 
     Returns:
       None.
     """
     try:
-        if os.path.isfile(file_name):
+        if os.path.isfile(ftp.LOCAL_JSON_DIR + file_name):
             print(file_name + " already exists")
         else:
-            with open(file_name, "a") as f:
-                if debug_ftp:
-                    # TODO can we get ride of the debug_ftp part?
-                    f.write(
-                        "{\"users\":{\"96dpi\":{\"commentId\":[\"asdfqwer\",\"jhkjer8f\"],\"commentScore\":[12, 1]}}}")
-                else:
-                    f.write(content)
+            with open(ftp.LOCAL_JSON_DIR + file_name, "a") as f:
+                f.write(content)
                 print(file_name + " was created")
     except OSError:
         print("Unable to create new file, terminating program")
         sys_exit()
 
 
-def build_subreddit_list(scanner_list):
+def build_subreddit_list(scanner_list) -> None:
     sub_list = {"subs": []}
     temp_sub_list = []
+
     for scanner in scanner_list:
         temp_sub_list.append(scanner.sub_name)
+
     temp_sub_list.sort(key=str.lower)
     sub_list["subs"] = temp_sub_list
     json_sub_list = json.dumps(sub_list)
-    create_file("subreddits.json", False, str(json_sub_list))
-    send_file("subreddits.json")
+    create_file("subreddits.json", str(json_sub_list))
+    ftp.send_file("subreddits.json")
 
 
-def main():
-    scanner_list = get_scanner_list()
+def is_new_month(previous_day) -> bool:
+    return previous_day > int(datetime.datetime.today().day)
+
+
+def main_scanner_loop() -> None:
+    scanner_list = scanner_pool.get_scanner_list()
     build_subreddit_list(scanner_list)
     while True:
         try:
@@ -445,10 +432,10 @@ def main():
                 total_posts = 0
                 total_comments = 0
                 file_name = scanner.sub_name + ".json"
-                create_file(file_name, False, "{\"users\":{},\"timestamp\":[]}")
+                create_file(file_name, "{\"users\":{},\"timestamp\":[]}")
 
                 # we don't need a try/catch here because create_file guarantees the file exists
-                with open(file_name, "r+") as f:
+                with open(ftp.LOCAL_JSON_DIR + file_name, "r+") as f:
                     obj = json.load(f)
                     start_seconds = time.perf_counter()
 
@@ -489,23 +476,24 @@ def main():
                 seconds_elapsed += time.perf_counter() - start_seconds
                 scanner.append_avg_runtime_seconds(seconds_elapsed)
                 print("\nTime elapsed: " + str(datetime.timedelta(minutes=(seconds_elapsed / 60))))
-
-                # update current day before we go to edit_flair
-                scanner.previous_day = ARGS.day if ARGS.day > 0 else datetime.datetime.today().day
                 scanner.first_pass_done = True
 
-                if edit_flair(obj, scanner):
-                    # FIXME this is confusing, the return value of edit_flair should be obvious
-                    # clear out the comment log at the beginning of each month
-                    obj["users"] = {}
+                if is_new_month(scanner.previous_day) and scanner.is_mod:
+                    edit_flair(obj, scanner)
+
+                # edit the wiki pages after every scanner finishes (every 6 hours)
+                edit_wiki(get_ratios_array(get_totals_array(obj)), scanner)
+
+                # update current day after `edit_flair` and before `sleep`
+                scanner.previous_day = ARGS.day if ARGS.day > 0 else datetime.datetime.today().day
 
                 try:
                     # write to the JSON file and close the file
-                    with open(file_name, "w") as f:
+                    with open(ftp.LOCAL_JSON_DIR + file_name, "w") as f:
                         f.seek(0)
                         json.dump(obj, f, indent=2)
                     upload_file_to_ftp_server(file_name)
-                    sleep(scanner, len(scanner_list))
+                    sleep(scanner)
                 except FileNotFoundError:
                     print("File Not Found, moving to next scanner.")
                     sys_exit()
@@ -514,17 +502,17 @@ def main():
         except (KeyboardInterrupt, SystemExit):
             # catches Ctrl+C and IDE program interruption to ensure we write to the json file
             try:
-                print("\n-- Process halted, dumping JSON file --")
+                print("\n -- Process halted, dumping JSON file --\n")
                 # highly unlikely that file_name is referenced before it is defined
-                with open(file_name, "w") as f:
+                with open(ftp.LOCAL_JSON_DIR + file_name, "w") as f:
                     f.seek(0)
                     json.dump(obj, f, indent=2)
             except NameError:
                 sys_exit()
             sys_exit()
-    # END main while loop
+    # END main scanner loop
 
 
 if __name__ == "__main__":
-    build_scanner_list()
-    main()
+    scanner_pool.build_scanner_list()
+    main_scanner_loop()

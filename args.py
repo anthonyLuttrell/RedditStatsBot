@@ -22,4 +22,11 @@ def get_args():
                         default=1000,
                         type=int)
 
+    parser.add_argument("-i",
+                        "--interval",
+                        help="The time between each scan, in seconds",
+                        choices=range(1, 21601),
+                        default=21600,  # 6 hours
+                        type=int)
+
     return parser.parse_args()

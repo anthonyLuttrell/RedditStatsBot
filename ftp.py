@@ -7,6 +7,8 @@ config.read("ftp.ini")
 SERVER_ADDRESS = config["ftp"]["server_address"]
 USERNAME = config["ftp"]["username"]
 PASSWORD = config["ftp"]["password"]
+SERVER_JSON_DIR = "public_html/json"
+LOCAL_JSON_DIR = "json/"
 
 
 def send_file(file_to_send: str) -> str:
@@ -24,8 +26,8 @@ def send_file(file_to_send: str) -> str:
         "530 Login authentication failed"
     """
     try:
-        with FTP(SERVER_ADDRESS, USERNAME, PASSWORD) as ftp, open(file_to_send, 'rb') as file:
-            ftp.cwd("public_html/json")
+        with FTP(SERVER_ADDRESS, USERNAME, PASSWORD) as ftp, open(LOCAL_JSON_DIR + file_to_send, 'rb') as file:
+            ftp.cwd(SERVER_JSON_DIR)
             return ftp.storbinary(f"STOR {file_to_send}", file)
     except (FileNotFoundError, ftplib.error_perm) as e:
         print(f"{e}: Unable to upload file {file_to_send}")

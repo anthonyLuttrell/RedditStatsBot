@@ -47,7 +47,6 @@ class Scanner:
             print("Mod invite accepted from r/" + self.sub_name)
             return True
         except RedditAPIException:
-            print("No pending mod invites from r/" + self.sub_name)
             return False
 
     def append_avg_runtime_seconds(self, seconds: float):

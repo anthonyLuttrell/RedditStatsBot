@@ -55,19 +55,41 @@ async function saveUserData()
     for (const sub of subsArr)
     {
         const path = JSON_PATH + sub + JSON_QUERY;
-        const response = await fetch(path);
-        const data = await response.json();
-        // make sure to use JSON.parse when parsing this data in session storage
-        try
-        {
-            sessionStorage.setItem(sub, JSON.stringify(data));
-            sessionStorage.setItem(sub + "-timestamp", JSON.stringify(data.timestamp));
-        }
-        catch (DOMException)
-        {
-            console.warn("SessionStorage is full! " + DOMException);
-            break;
-        }
+        fetch(path)
+            .then(response =>
+            {
+                if (response.ok)
+                {
+                    return response.json();
+                }
+                return Promise.reject()
+            })
+            .then(jsonResponse =>
+            {
+                navigator.storage.estimate().then(estimate =>
+                {
+                    const quotaPct = ((estimate.usage / estimate.quota) * 100).toFixed(2) + "%"
+                    const quotaMB = (estimate.quota / 1024 / 1024).toFixed(2) + "MB"
+                    console.log("Currently using about " +
+                        quotaPct +
+                        " of estimated storage quota (" +
+                        quotaMB +
+                        ").")
+                });
+
+                try
+                {
+                    sessionStorage.setItem(sub, JSON.stringify(jsonResponse));
+                    sessionStorage.setItem(sub + "-timestamp", JSON.stringify(jsonResponse.timestamp));
+                } catch (DOMException)
+                {
+                    console.warn("SessionStorage is full! " + DOMException);
+                }
+            })
+            .catch(error =>
+            {
+                console.error(error)
+            });
     }
 }
 

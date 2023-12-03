@@ -22,7 +22,7 @@ class Scanner:
         self.interval_seconds = interval_sec
         self.bot_name = bot_name
         self.sub_instance = self.get_subreddit_instance()
-        self.is_mod = self.check_mod_invite()  # FIXME this is wrong, https://praw.readthedocs.io/en/stable/code_overview/other/moderatorrelationship.html
+        self.is_mod = self.check_mod_invite()
         self.individual_avg_runtime_seconds = []
         self.first_pass_done = False
 
@@ -37,6 +37,11 @@ class Scanner:
             sys_exit()
 
     def check_mod_invite(self) -> bool:
+        for mod in self.sub_instance.moderator():
+            # check if this bot is already a mod
+            if self.bot_name == mod.name:
+                return True
+
         try:
             self.sub_instance.mod.accept_invite()
             print("Mod invite accepted from r/" + self.sub_name)

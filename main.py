@@ -37,6 +37,7 @@ TOTAL_COMMENTS_IDX = 1
 AVG_SCORE_IDX = 1
 TOTAL_SCORE_IDX = 2
 NEG_COMMENTS_IDX = 3
+SUBS_FILENAME = "subreddits.json"
 
 
 def edit_flair(obj: dict, scanner: Scanner) -> None:
@@ -179,6 +180,7 @@ def set_flair_template_ids(sub_instance: praw.models.Subreddit) -> None:
             missing_months += 1
 
     if missing_months > 0:
+        # TODO this should print the exact months that are missing
         print(f"User Flair template list is missing {str(missing_months)} month(s)")
 
 
@@ -217,14 +219,16 @@ def edit_wiki(ratio_arr: list, scanner: Scanner) -> None:
         except prawcore.exceptions.NotFound as e:
             print(f"{e}: Could not edit Wiki page on {scanner.sub_name}")
     else:
-        # print("Wiki destination: " + scanner.bot_name + "/" + reason_string)
-        # print(wiki_content)
+        print("Wiki destination: " + scanner.bot_name + "/" + reason_string)
+        print(wiki_content)
         pass
 
 
 def upload_file_to_ftp_server(file_name: str) -> None:
     try:
-        ftp.send_file(file_name)
+        result = ftp.send_file(file_name)
+        if ARGS.debug is not None:
+            print(str(result))
     except (Exception,) as e:
         print(f"{e}: Unable to upload file")
 
@@ -335,7 +339,7 @@ def sleep(scanner: Scanner) -> None:
     finished one pass, scanners will take longer than `scanner.interval_seconds` 
     to complete each pass, and we should print a warning.
     """
-    adjusted_scanner_interval = scanner.interval_seconds - scanner_pool.get_cumulative_avg_runtime()
+    adjusted_scanner_interval = round(scanner.interval_seconds - scanner_pool.get_cumulative_avg_runtime())
 
     if adjusted_scanner_interval < get_variance(scanner) and scanner_pool.first_pass_completed():
         print(f"Some scanners may not finish within {round(scanner.interval_seconds / 60 / 60, 2)} hours!")
@@ -344,9 +348,9 @@ def sleep(scanner: Scanner) -> None:
 
     if ARGS.debug is not None:
         print(f" Current scanner's runtime = {scanner.individual_avg_runtime_seconds[-1]}")
-        print(f"Cumulative average runtime = {str(scanner_pool.get_cumulative_avg_runtime())}")
+        print(f"Cumulative average runtime = {str(round(scanner_pool.get_cumulative_avg_runtime()))}")
         print(f" Adjusted scanner interval = {adjusted_scanner_interval}")
-        print(f"                  Variance = {get_variance(scanner)}")
+        print(f"                  Variance = {round(get_variance(scanner))}")
         print(f"        Sleep time seconds = {sleep_time_seconds}")
 
     sleep_time_string = date_time + datetime.timedelta(seconds=sleep_time_seconds)
@@ -394,11 +398,13 @@ def create_file(file_name: str, content: str) -> None:
     """
     try:
         if os.path.isfile(ftp.LOCAL_JSON_DIR + file_name):
-            print(file_name + " already exists")
+            if ARGS.debug is not None:
+                print(file_name + " already exists")
         else:
             with open(ftp.LOCAL_JSON_DIR + file_name, "a") as f:
                 f.write(content)
-                print(file_name + " was created")
+                if ARGS.debug is not None:
+                    print(file_name + " was created")
     except OSError:
         print("Unable to create new file, terminating program")
         sys_exit()
@@ -414,8 +420,8 @@ def build_subreddit_list(scanner_list) -> None:
     temp_sub_list.sort(key=str.lower)
     sub_list["subs"] = temp_sub_list
     json_sub_list = json.dumps(sub_list)
-    create_file("subreddits.json", str(json_sub_list))
-    ftp.send_file("subreddits.json")
+    create_file(SUBS_FILENAME, str(json_sub_list))
+    upload_file_to_ftp_server(SUBS_FILENAME)
 
 
 def is_new_month(previous_day) -> bool:
@@ -475,8 +481,10 @@ def main_scanner_loop() -> None:
                 # DONE scanning all posts in subreddit, moving on to next scanner in the list, but first...
                 seconds_elapsed += time.perf_counter() - start_seconds
                 scanner.append_avg_runtime_seconds(seconds_elapsed)
-                print("\nTime elapsed: " + str(datetime.timedelta(minutes=(seconds_elapsed / 60))))
                 scanner.first_pass_done = True
+
+                if ARGS.debug is not None:
+                    print("\nTime elapsed: " + str(datetime.timedelta(minutes=(seconds_elapsed / 60))))
 
                 if is_new_month(scanner.previous_day) and scanner.is_mod:
                     edit_flair(obj, scanner)

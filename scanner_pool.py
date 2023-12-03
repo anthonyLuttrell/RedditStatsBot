@@ -12,19 +12,20 @@ cumulative_avg_runtime_list = []
 
 # Subreddits added to this list will be automatically added to the list of scanners.
 subreddit_list = [
+    "cooking",
     "cookingforbeginners",
-    "learnpython",
-    "baking",
+    # "learnpython",
+    # "baking",
     "AskBaking",
     "chefit",
-    # "breadit",
+    "breadit",
     # "learnprogramming",
     # "AskReddit",
     # "AskScience",
     # "AskHistorians",
     # "AskWomen",
     # "AskMen",
-    # "AskCulinary",
+    "AskCulinary"
     # "TrueAskReddit",
     # "AskSocialScience",
     # "AskEngineers",
@@ -35,11 +36,11 @@ subreddit_list = [
     # "AskElectronics",
     # "AskTransgender",
     # "AskComputerScience",
-    "AskDrugs",
-    "AskFeminists",
-    "AskPhotography",
-    "AskUk",
-    "AskModerators",
+    # "AskDrugs",
+    # "AskFeminists",
+    # "AskPhotography",
+    # "AskUk",
+    # "AskModerators",
 ]
 
 

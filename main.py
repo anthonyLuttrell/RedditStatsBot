@@ -457,7 +457,8 @@ def main_scanner_loop() -> None:
                                     if not comment.distinguished:
                                         user_id = str(comment.author)
                                         total_comments += 1
-                                        # FIXME this does not print in Docker logs
+                                        # FIXME this does not print in Docker logs. Do we want something printing every
+                                        #  second in the Docker logs? I don't think that's what they are intended for.
                                         print("\r", "Began scanning submission ID " + str(submission.id) +
                                               ", total Comments Scanned: " +
                                               str(total_comments), end="")

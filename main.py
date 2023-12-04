@@ -337,21 +337,21 @@ def sleep(scanner: Scanner) -> None:
     finished one pass, scanners will take longer than `scanner.interval_seconds` 
     to complete each pass, and we should print a warning.
     """
-    adjusted_scanner_interval = round(scanner.interval_seconds - scanner_pool.get_cumulative_avg_runtime())
+    adjusted_scanner_interval = scanner_pool.get_cumulative_avg_runtime() - get_variance(scanner)
 
-    if adjusted_scanner_interval < get_variance(scanner) and scanner_pool.first_pass_completed():
-        log.warn("Some scanners may not finish within ", str(round(scanner.interval_seconds / 60 / 60, 2)), " hours!")
+    if adjusted_scanner_interval >= scanner.interval_seconds and scanner_pool.first_pass_completed():
+        log.warn("Some scanners may not finish within ",
+                 str(round(scanner.interval_seconds / 60 / 60, 2)),
+                 " hours!")
     elif scanner_pool.first_pass_completed():
         sleep_time_seconds = adjusted_scanner_interval
 
-    log.info(" Current scanner's runtime = ", str(round(scanner.individual_avg_runtime_seconds[-1], 2)))
     log.info("Cumulative average runtime = ", str(round(scanner_pool.get_cumulative_avg_runtime())))
-    log.info(" Adjusted scanner interval = ", str(adjusted_scanner_interval))
+    log.info(" Current scanner's runtime = ", str(round(scanner.individual_avg_runtime_seconds[-1], 2)))
     log.info("                  Variance = ", str(round(get_variance(scanner), 2)))
-    log.info("        Sleep time seconds = ", str(sleep_time_seconds))
 
     sleep_time_string = date_time + datetime.timedelta(seconds=sleep_time_seconds)
-    log.info(f"Sleeping since {sleep_string}, waking up at {str(sleep_time_string.time())}")
+    log.info(f" Now sleeping, waking up at: {str(sleep_time_string.time())}")
     upload_file_to_ftp_server(DEBUG_FILENAME)
 
     time.sleep(sleep_time_seconds)
@@ -482,7 +482,6 @@ def main_scanner_loop() -> None:
                 scanner.append_avg_runtime_seconds(seconds_elapsed)
                 scanner.first_pass_done = True
 
-                log.info("              Time elapsed = ", str(datetime.timedelta(minutes=(seconds_elapsed / 60))))
                 log.info("       Total posts scanned = ", str(total_posts))
                 log.info("    Total comments scanned = ", str(total_comments))
 

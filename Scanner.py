@@ -1,6 +1,7 @@
 import os
 import praw
 import sys
+import log
 from praw.exceptions import RedditAPIException
 from prawcore import OAuthException
 from args import get_args
@@ -33,7 +34,7 @@ class Scanner:
         try:
             return self.log_in().subreddit(self.sub_name)
         except OAuthException:
-            print("Unable to log in! Verify the credentials in the praw.ini file and try again. Terminating program.")
+            log.critical("Unable to log in! Verify the credentials in the praw.ini file and try again. Terminating program.")
             sys_exit()
 
     def check_mod_invite(self) -> bool:
@@ -41,10 +42,9 @@ class Scanner:
             # check if this bot is already a mod
             if self.bot_name == mod.name:
                 return True
-
         try:
             self.sub_instance.mod.accept_invite()
-            print("Mod invite accepted from r/" + self.sub_name)
+            log.info("Mod invite accepted from r/" + self.sub_name)
             return True
         except RedditAPIException:
             return False

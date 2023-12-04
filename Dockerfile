@@ -8,4 +8,4 @@ WORKDIR /statsbot
 COPY . /statsbot/
 RUN pip install -r requirements.txt
 STOPSIGNAL SIGQUIT
-CMD ["python", "main.py"]
+CMD ["python", "-u", "main.py"]

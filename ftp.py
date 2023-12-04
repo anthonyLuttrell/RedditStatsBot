@@ -1,5 +1,6 @@
 import ftplib
 import os.path
+import log
 from ftplib import FTP
 from configparser import ConfigParser
 
@@ -19,7 +20,7 @@ def exceeded_session_storage(file_to_send: str) -> bool:
     try:
         size = os.path.getsize(LOCAL_JSON_DIR + file_to_send)
     except OSError as e:
-        print(f"{e}: Unable to check file size, sending file anyway.")
+        log.warn(str(e), ": Unable to check file size, sending file anyway.")
         return True
     SESSION_STORAGE_FILE_DICT[file_to_send] = size
     return SESSION_STORAGE_LIMIT < sum(SESSION_STORAGE_FILE_DICT.values())
@@ -47,5 +48,5 @@ def send_file(file_to_send: str) -> str:
             else:
                 raise ftplib.error_perm("Exceeded browser session storage limit")
     except (FileNotFoundError, ftplib.error_perm) as e:
-        print(f"{e}: Unable to upload file {file_to_send}")
+        log.warn(str(e), ": Unable to upload file ", file_to_send, "\"")
 

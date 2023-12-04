@@ -12,13 +12,13 @@ cumulative_avg_runtime_list = []
 
 # Subreddits added to this list will be automatically added to the list of scanners.
 subreddit_list = [
-    "cooking",
+    # "cooking",
     "cookingforbeginners",
     # "learnpython",
     # "baking",
     "AskBaking",
-    "chefit",
-    "breadit",
+    # "chefit",
+    # "breadit",
     # "learnprogramming",
     # "AskReddit",
     # "AskScience",
@@ -79,4 +79,4 @@ def get_cumulative_avg_runtime() -> int:
             cumulative_avg_runtime += avg_runtime
 
     cumulative_avg_runtime_list.append(cumulative_avg_runtime)
-    return round(cumulative_avg_runtime)
+    return round(cumulative_avg_runtime, 2)

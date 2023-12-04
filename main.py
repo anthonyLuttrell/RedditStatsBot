@@ -8,6 +8,7 @@ import sys
 import time
 import ftp
 import scanner_pool
+import log
 from typing import List
 from Scanner import Scanner
 from args import get_args
@@ -38,6 +39,7 @@ AVG_SCORE_IDX = 1
 TOTAL_SCORE_IDX = 2
 NEG_COMMENTS_IDX = 3
 SUBS_FILENAME = "subreddits.json"
+DEBUG_FILENAME = "debug.log"
 
 
 def edit_flair(obj: dict, scanner: Scanner) -> None:
@@ -72,15 +74,16 @@ def edit_flair(obj: dict, scanner: Scanner) -> None:
                 flair_template_id=MONTHS[prev_month][FLAIR_TEMPLATE_ID_IDX]
             )
     else:
-        print("Debug output only, no flair has been changed")
+        log.debug("Debug output only, no flair has been changed")
         for i in range(0, len(ratios_arr)):
-            print("Flair updated for: " +
-                  ratios_arr[i][NAME_IDX] +
-                  " for " +
-                  MONTHS[prev_month][FLAIR_TEMPLATE_ID_IDX])
+            log.debug("Flair updated for: ",
+                      ratios_arr[i][NAME_IDX],
+                      " for ",
+                      MONTHS[prev_month][FLAIR_TEMPLATE_ID_IDX])
 
-    # clear out the comment log at the beginning of each month
+    # clear out the comment log and debug log at the beginning of each month
     obj["users"] = {}
+    open(DEBUG_FILENAME, "w").close()
 
 
 def get_totals_array(users_obj: dict) -> List[list]:
@@ -181,7 +184,7 @@ def set_flair_template_ids(sub_instance: praw.models.Subreddit) -> None:
 
     if missing_months > 0:
         # TODO this should print the exact months that are missing
-        print(f"User Flair template list is missing {str(missing_months)} month(s)")
+        log.warn("User Flair template list is missing ", str(missing_months), " month(s)")
 
 
 def edit_wiki(ratio_arr: list, scanner: Scanner) -> None:
@@ -217,20 +220,15 @@ def edit_wiki(ratio_arr: list, scanner: Scanner) -> None:
                 reason_string
                 ].edit(content=wiki_content, reason=reason_string)
         except prawcore.exceptions.NotFound as e:
-            print(f"{e}: Could not edit Wiki page on {scanner.sub_name}")
-    else:
-        print("Wiki destination: " + scanner.bot_name + "/" + reason_string)
-        print(wiki_content)
-        pass
+            log.error(str(e), ": Could not edit Wiki page on ", scanner.sub_name)
 
 
 def upload_file_to_ftp_server(file_name: str) -> None:
     try:
         result = ftp.send_file(file_name)
-        if ARGS.debug is not None:
-            print(str(result))
+        log.debug(str(result))
     except (Exception,) as e:
-        print(f"{e}: Unable to upload file")
+        log.error(str(e), ": Unable to upload file")
 
 
 def user_exists(obj: dict, user_id_to_check: str) -> bool:
@@ -342,19 +340,19 @@ def sleep(scanner: Scanner) -> None:
     adjusted_scanner_interval = round(scanner.interval_seconds - scanner_pool.get_cumulative_avg_runtime())
 
     if adjusted_scanner_interval < get_variance(scanner) and scanner_pool.first_pass_completed():
-        print(f"Some scanners may not finish within {round(scanner.interval_seconds / 60 / 60, 2)} hours!")
+        log.warn("Some scanners may not finish within ", str(round(scanner.interval_seconds / 60 / 60, 2)), " hours!")
     elif scanner_pool.first_pass_completed():
         sleep_time_seconds = adjusted_scanner_interval
 
-    if ARGS.debug is not None:
-        print(f" Current scanner's runtime = {scanner.individual_avg_runtime_seconds[-1]}")
-        print(f"Cumulative average runtime = {str(round(scanner_pool.get_cumulative_avg_runtime()))}")
-        print(f" Adjusted scanner interval = {adjusted_scanner_interval}")
-        print(f"                  Variance = {round(get_variance(scanner))}")
-        print(f"        Sleep time seconds = {sleep_time_seconds}")
+    log.info(" Current scanner's runtime = ", str(round(scanner.individual_avg_runtime_seconds[-1], 2)))
+    log.info("Cumulative average runtime = ", str(round(scanner_pool.get_cumulative_avg_runtime())))
+    log.info(" Adjusted scanner interval = ", str(adjusted_scanner_interval))
+    log.info("                  Variance = ", str(round(get_variance(scanner), 2)))
+    log.info("        Sleep time seconds = ", str(sleep_time_seconds))
 
     sleep_time_string = date_time + datetime.timedelta(seconds=sleep_time_seconds)
-    print(f"Sleeping since {sleep_string}, waking up at {str(sleep_time_string.time())}")
+    log.info(f"Sleeping since {sleep_string}, waking up at {str(sleep_time_string.time())}")
+    upload_file_to_ftp_server(DEBUG_FILENAME)
 
     time.sleep(sleep_time_seconds)
 
@@ -398,15 +396,13 @@ def create_file(file_name: str, content: str) -> None:
     """
     try:
         if os.path.isfile(ftp.LOCAL_JSON_DIR + file_name):
-            if ARGS.debug is not None:
-                print(file_name + " already exists")
+            log.debug(file_name, " already exists")
         else:
             with open(ftp.LOCAL_JSON_DIR + file_name, "a") as f:
                 f.write(content)
-                if ARGS.debug is not None:
-                    print(file_name + " was created")
+                log.debug(file_name, " was created")
     except OSError:
-        print("Unable to create new file, terminating program")
+        log.critical("Unable to create new file, terminating program")
         sys_exit()
 
 
@@ -434,6 +430,7 @@ def main_scanner_loop() -> None:
     while True:
         try:
             for scanner in scanner_list:
+                log.info("    Now scanning subreddit = ", scanner.sub_name)
                 seconds_elapsed = 0
                 total_posts = 0
                 total_comments = 0
@@ -459,9 +456,10 @@ def main_scanner_loop() -> None:
                                         total_comments += 1
                                         # FIXME this does not print in Docker logs. Do we want something printing every
                                         #  second in the Docker logs? I don't think that's what they are intended for.
-                                        print("\r", "Began scanning submission ID " + str(submission.id) +
-                                              ", total Comments Scanned: " +
-                                              str(total_comments), end="")
+                                        if ARGS.debug is not None:
+                                            print("\r", "Began scanning submission ID " + str(submission.id) +
+                                                  ", total Comments Scanned: " +
+                                                  str(total_comments), end="")
                                         if user_id != "None":
                                             if user_exists(obj, user_id):
                                                 update_existing(obj, comment, user_id)
@@ -477,15 +475,16 @@ def main_scanner_loop() -> None:
                         obj["timestamp"] = str(trimmed_timestamp)
                     except prawcore.exceptions.ServerError as e:
                         # this will catch HTTP server errors from Reddit's servers
-                        print(e)
+                        log.error(str(e))
 
                 # DONE scanning all posts in subreddit, moving on to next scanner in the list, but first...
                 seconds_elapsed += time.perf_counter() - start_seconds
                 scanner.append_avg_runtime_seconds(seconds_elapsed)
                 scanner.first_pass_done = True
 
-                if ARGS.debug is not None:
-                    print("\nTime elapsed: " + str(datetime.timedelta(minutes=(seconds_elapsed / 60))))
+                log.info("              Time elapsed = ", str(datetime.timedelta(minutes=(seconds_elapsed / 60))))
+                log.info("       Total posts scanned = ", str(total_posts))
+                log.info("    Total comments scanned = ", str(total_comments))
 
                 if is_new_month(scanner.previous_day) and scanner.is_mod:
                     edit_flair(obj, scanner)
@@ -504,14 +503,14 @@ def main_scanner_loop() -> None:
                     upload_file_to_ftp_server(file_name)
                     sleep(scanner)
                 except FileNotFoundError:
-                    print("File Not Found, moving to next scanner.")
+                    log.critical("File Not Found, moving to next scanner.")
                     sys_exit()
 
             # END for-each scanner loop
         except (KeyboardInterrupt, SystemExit):
             # catches Ctrl+C and IDE program interruption to ensure we write to the json file
             try:
-                print("\n -- Process halted, dumping JSON file --\n")
+                log.warn(" -- Process halted, dumping JSON file --\n")
                 # highly unlikely that file_name is referenced before it is defined
                 with open(ftp.LOCAL_JSON_DIR + file_name, "w") as f:
                     f.seek(0)

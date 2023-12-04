@@ -12,7 +12,7 @@ cumulative_avg_runtime_list = []
 
 # Subreddits added to this list will be automatically added to the list of scanners.
 subreddit_list = [
-    # "cooking",
+    "cooking",
     "cookingforbeginners",
     # "learnpython",
     # "baking",

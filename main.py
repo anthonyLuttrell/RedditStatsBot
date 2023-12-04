@@ -325,7 +325,6 @@ def sleep(scanner: Scanner) -> None:
     Returns:
       None.
     """
-    sleep_string = time.strftime("%H:%M:%S")
     date_time = datetime.datetime.now()
     sleep_time_seconds = 1
     """
@@ -506,10 +505,10 @@ def main_scanner_loop() -> None:
                     sys_exit()
 
             # END for-each scanner loop
-        except (KeyboardInterrupt, SystemExit):
+        except (KeyboardInterrupt, SystemExit, prawcore.exceptions.ServerError) as e:
             # catches Ctrl+C and IDE program interruption to ensure we write to the json file
             try:
-                log.warn(" -- Process halted, dumping JSON file --\n")
+                log.critical(f"{e} :: Process halted, dumping JSON file! ::")
                 # highly unlikely that file_name is referenced before it is defined
                 with open(ftp.LOCAL_JSON_DIR + file_name, "w") as f:
                     f.seek(0)

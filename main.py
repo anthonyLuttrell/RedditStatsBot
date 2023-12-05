@@ -39,6 +39,7 @@ AVG_SCORE_IDX = 1
 TOTAL_SCORE_IDX = 2
 NEG_COMMENTS_IDX = 3
 SUBS_FILENAME = "subreddits.json"
+DEBUG_FILENAME = "debug.log"
 
 
 def edit_flair(obj: dict, scanner: Scanner) -> None:

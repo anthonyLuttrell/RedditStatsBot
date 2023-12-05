@@ -138,18 +138,20 @@ def get_ratios_array(totals_arr: List[list]) -> List[list]:
         A list of lists, where each inner list contains the username and average
         score for a user.
     """
-    # TODO Find the top 1% highest number of total comments,
-    #  then calculate the percentage of negative comments from these comments,
-    #  then find the top 1% of that.
     ratio_arr = []
     top_1_percent = math.ceil(len(totals_arr) * 0.01)  # ceil ensures we always have at least 1 entry in the list
+
     for i in range(0, top_1_percent):
-        if totals_arr[i][NEG_COMMENTS_IDX] == 0:  # skip those with a negative top-level comment
-            ratio_arr.append([totals_arr[i][NAME_IDX],
-                              round((totals_arr[i][TOTAL_SCORE_IDX]) / (totals_arr[i][TOTAL_COMMENTS_IDX]), 2)])
+        if (totals_arr[i][NEG_COMMENTS_IDX] / totals_arr[i][TOTAL_COMMENTS_IDX]) <= 0.02:
+            # allows 1 negative comment for every 50 total comments
+            ratio_arr.append(
+                [
+                    totals_arr[i][NAME_IDX],
+                    round((totals_arr[i][TOTAL_SCORE_IDX]) / (totals_arr[i][TOTAL_COMMENTS_IDX]), 2)
+                ]
+            )
 
     ratio_arr.sort(reverse=True, key=lambda x: x[AVG_SCORE_IDX])
-
     return ratio_arr
 
 

@@ -34,3 +34,21 @@
 Now you should be able to run the program from either your IDE, or through a command prompt. There should be some basic print statements giving you info, and once the main loop finishes, you can check the `stats.json` file to see the data it collected. You may want to change the `SLEEP_TIME_SECONDS` constant to just a few seconds. Just inline comment out everything to the right of the `=` and stick an integer in there before the comment. 
 
 BTW, you can actually run this in "read-only" mode on any subreddit. You will just have to comment out the lines where it actually tries to edit user flair and the reddit's wiki page.
+
+---
+
+### Web
+
+1. Similar to the `praw.ini` file, you will need an `ftp.ini` file that stores your FTP log-in credentials.
+   * If you will be working on the web portion of this project, I can create a new FTP account for you upon request, and that is what you will use to fill out your `ftp.ini` file.
+   * If you will not be working on the web portion, you will need to comment out the code in `ftp.py` for now (keep the `send_file` function, just replace its body with `pass`), until we figure out a better solution. 
+   * The `ftp.ini` file should be stored in the root directory of the project and its contents should be: 
+     ```
+     [ftp]
+     server_address: redditstatsbot.com
+     username: YourFTPUsername
+     password: YourFTPPassword
+     ```
+   * This file should always stay on your local PC, it should never be checked into any version control software (like Git), and you should never share it with anyone else. It is already in the `.gitignore` file, which prevents Git from including it in any push/pulls that you do.
+
+

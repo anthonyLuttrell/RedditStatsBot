@@ -4,8 +4,7 @@ from Scanner import Scanner
 
 ARGS = get_args()
 NUM_POSTS_TO_SCAN = ARGS.posts
-# must be larger than sum of the average runtime and the
-# cumulative average runtime
+# must be larger than the cumulative average runtime
 SCANNER_INTERVAL_SEC = ARGS.interval
 scanner_list = []
 cumulative_avg_runtime_list = []
@@ -14,33 +13,8 @@ cumulative_avg_runtime_list = []
 subreddit_list = [
     "cooking",
     "cookingforbeginners",
-    # "learnpython",
-    # "baking",
     "AskBaking",
-    # "chefit",
-    # "breadit",
-    # "learnprogramming",
-    # "AskReddit",
-    # "AskScience",
-    # "AskHistorians",
-    # "AskWomen",
-    # "AskMen",
     "AskCulinary"
-    # "TrueAskReddit",
-    # "AskSocialScience",
-    # "AskEngineers",
-    # "AskPhilosophy",
-    # "AskScienceFiction",
-    # "Ask_Politics",
-    # "AskAcademia",
-    # "AskElectronics",
-    # "AskTransgender",
-    # "AskComputerScience",
-    # "AskDrugs",
-    # "AskFeminists",
-    # "AskPhotography",
-    # "AskUk",
-    # "AskModerators",
 ]
 
 

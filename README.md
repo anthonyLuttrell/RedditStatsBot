@@ -23,17 +23,11 @@
 
 4. Create a new subreddit to be used for a sandbox testing environment. You will need to add your bot as a mod. Make some test posts and test comments.
 
-5. There are three lines in `main.py` that you will have to change to get the bot to run on your newly created subreddit.
+5. In `scanner_pool.py`, there is an object called `scanner_class_builder`. Change the string after `bot_name=` to be your newly created bot account name.
 
-   a. `BOT_NAME = "CookingStatsBot"`: replace `CookingStatsBot` with whatever you entered for `AnyCommonName` in your `praw.ini` file. 
-   
-   b. `REDDIT = praw.Reddit(BOT_NAME, user_agent="r/Cooking Stats Bot by u/96dpi")`: replace the `user_agent` text with a very brief description on your bot and your Reddit username. 
-   
-   c. `SUB = "Cooking"`: replace `Cooking` with your newly created subreddit. 
+6. Also in `scanner_pool.py`, add your newly created testing subreddit to the `subreddit_list`. 
 
-Now you should be able to run the program from either your IDE, or through a command prompt. There should be some basic print statements giving you info, and once the main loop finishes, you can check the `stats.json` file to see the data it collected. You may want to change the `SLEEP_TIME_SECONDS` constant to just a few seconds. Just inline comment out everything to the right of the `=` and stick an integer in there before the comment. 
-
-BTW, you can actually run this in "read-only" mode on any subreddit. You will just have to comment out the lines where it actually tries to edit user flair and the reddit's wiki page.
+When you run the program, it will scan each sub in this list, so feel free to add or remove whatever you'd like. Only subs where your bot has user flair and wiki permissions will be able to actually change anything. Debug output is saved to `json/debug.log`.
 
 ---
 

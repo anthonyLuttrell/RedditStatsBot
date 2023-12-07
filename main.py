@@ -189,42 +189,6 @@ def set_flair_template_ids(sub_instance: praw.models.Subreddit) -> None:
         log.warn("User Flair template list is missing ", str(missing_months), " month(s)")
 
 
-def edit_wiki(ratio_arr: list, scanner: Scanner) -> None:
-    """Edit the subreddit's wiki page.
-
-    The wiki page is edited under two conditions:
-      1. After every 6-hour iteration (user flair is not edited in this case).
-      2. After the first iteration of the main loop on the 1st day of the month.
-
-    Note:
-        This will accept Markdown syntax and the Reddit wiki pages will create a TOC based on the tags used. This may be
-        helpful for future needs.
-
-    Args:
-        ratio_arr: A list of lists containing the username and average score for each user.
-        scanner: The Scanner object that we are currently working on.
-
-    Returns:
-        None.
-    """
-    trimmed_timestamp = datetime.datetime.utcnow()
-    # FIXME I don't think this is actually doing anything
-    trimmed_timestamp.replace(microsecond=round(trimmed_timestamp.microsecond, -3))
-    wiki_content = "Last updated (UTC): " + str(trimmed_timestamp)
-    reason_string = "6-hour-update"
-    for i in range(0, len(ratio_arr)):
-        wiki_content += f"\n\n{str(i + 1)}. {ratio_arr[i][0]} [ average score: {str(ratio_arr[i][1])} ]"
-    if ARGS.debug is None and scanner.is_mod:
-        try:
-            scanner.sub_instance.wiki[
-                scanner.bot_name +
-                "/" +
-                reason_string
-                ].edit(content=wiki_content, reason=reason_string)
-        except prawcore.exceptions.NotFound as e:
-            log.error(str(e), ": Could not edit Wiki page on ", scanner.sub_name)
-
-
 def upload_file_to_ftp_server(file_name: str) -> None:
     try:
         result = ftp.send_file(file_name)
@@ -489,22 +453,18 @@ def main_scanner_loop() -> None:
                 if is_new_month(scanner.previous_day) and scanner.is_mod:
                     edit_flair(obj, scanner)
 
-                # edit the wiki pages after every scanner finishes (every 6 hours)
-                edit_wiki(get_ratios_array(get_totals_array(obj)), scanner)
-
                 # update current day after `edit_flair` and before `sleep`
                 scanner.previous_day = ARGS.day if ARGS.day > 0 else datetime.datetime.today().day
 
                 try:
-                    # write to the JSON file and close the file
                     with open(ftp.LOCAL_JSON_DIR + file_name, "w") as f:
+                        # overwrite all old data with current data
                         f.seek(0)
                         json.dump(obj, f, indent=2)
                     upload_file_to_ftp_server(file_name)
                     sleep(scanner)
-                except FileNotFoundError:
-                    log.critical("File Not Found, moving to next scanner.")
-                    sys_exit()
+                except FileNotFoundError as e:
+                    log.critical(f"{e}: nothing was saved, moving to next scanner.")
 
             # END for-each scanner loop
         except (KeyboardInterrupt, SystemExit, prawcore.exceptions.ServerError) as e:
@@ -519,6 +479,23 @@ def main_scanner_loop() -> None:
                 sys_exit()
             sys_exit()
     # END main scanner loop
+
+
+def debug_function(file_name):
+    total_users = 0
+    usage = {}
+    with open(ftp.LOCAL_JSON_DIR + file_name, "r+") as f:
+        obj = json.load(f)
+        debug_list = get_totals_array(obj)
+
+        for user in debug_list:
+            total_users += 1
+            usage[user[TOTAL_COMMENTS_IDX]] = usage.get(user[TOTAL_COMMENTS_IDX], 0) + 1
+
+    percents = [(num, amount / total_users * 100) for num, amount in usage.items()]
+    for percent in percents:
+        print(str(percent[0]) + ": " + str(round((percent[1]), 3)))
+    sys_exit()
 
 
 if __name__ == "__main__":

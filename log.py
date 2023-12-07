@@ -8,6 +8,7 @@ logging.basicConfig(
     filename="json/debug.log",
 )
 
+# TODO I'm not sure if this is actually working, need to test
 handler = logging.StreamHandler(sys.stderr)
 handler.addFilter(lambda record: record.levelno >= logging.WARNING)
 

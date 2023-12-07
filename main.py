@@ -496,15 +496,14 @@ def main_scanner_loop() -> None:
                 scanner.previous_day = ARGS.day if ARGS.day > 0 else datetime.datetime.today().day
 
                 try:
-                    # write to the JSON file and close the file
                     with open(ftp.LOCAL_JSON_DIR + file_name, "w") as f:
+                        # overwrite all old data with current data
                         f.seek(0)
                         json.dump(obj, f, indent=2)
                     upload_file_to_ftp_server(file_name)
                     sleep(scanner)
-                except FileNotFoundError:
-                    log.critical("File Not Found, moving to next scanner.")
-                    sys_exit()
+                except FileNotFoundError as e:
+                    log.critical(f"{e}: nothing was saved, moving to next scanner.")
 
             # END for-each scanner loop
         except (KeyboardInterrupt, SystemExit, prawcore.exceptions.ServerError) as e:
@@ -519,6 +518,23 @@ def main_scanner_loop() -> None:
                 sys_exit()
             sys_exit()
     # END main scanner loop
+
+
+def debug_function(file_name):
+    total_users = 0
+    usage = {}
+    with open(ftp.LOCAL_JSON_DIR + file_name, "r+") as f:
+        obj = json.load(f)
+        debug_list = get_totals_array(obj)
+
+        for user in debug_list:
+            total_users += 1
+            usage[user[TOTAL_COMMENTS_IDX]] = usage.get(user[TOTAL_COMMENTS_IDX], 0) + 1
+
+    percents = [(num, amount / total_users * 100) for num, amount in usage.items()]
+    for percent in percents:
+        print(str(percent[0]) + ": " + str(round((percent[1]), 3)))
+    sys_exit()
 
 
 if __name__ == "__main__":

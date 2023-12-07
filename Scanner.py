@@ -43,10 +43,12 @@ class Scanner:
             if self.bot_name == mod.name:
                 return True
         try:
+            # bot is not a mod, but we'll check for pending invites
             self.sub_instance.mod.accept_invite()
             log.info("Mod invite accepted from r/" + self.sub_name)
             return True
         except RedditAPIException:
+            # bot is not a mod, and there are no pending invites
             return False
 
     def append_avg_runtime_seconds(self, seconds: float):

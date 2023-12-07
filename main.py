@@ -191,8 +191,7 @@ def set_flair_template_ids(sub_instance: praw.models.Subreddit) -> None:
 
 def upload_file_to_ftp_server(file_name: str) -> None:
     try:
-        result = ftp.send_file(file_name)
-        log.debug(str(result))
+        log.debug(ftp.send_file(file_name).splitlines()[0])
     except (Exception,) as e:
         log.error(str(e), ": Unable to upload file")
 
@@ -347,11 +346,13 @@ def sys_exit() -> None:
         os.system(exit(130))
 
 
-def create_file(file_name: str, content: str) -> None:
+def create_file(file_name: str, content: str, overwrite: bool) -> None:
     """Creates the files if they don't exist.
 
     Args:
-      file_name: 
+      overwrite:
+        True if you want to overwrite data to an existing file, False if you don't.
+      file_name:
         The name of the json file, should match the sub's name.
       content: 
         A JSON-syntax string that will fill the file.
@@ -362,6 +363,11 @@ def create_file(file_name: str, content: str) -> None:
     try:
         if os.path.isfile(ftp.LOCAL_JSON_DIR + file_name):
             log.debug(file_name, " already exists")
+            if overwrite:
+                with open(ftp.LOCAL_JSON_DIR + file_name, "w") as f:
+                    f.seek(0)
+                    f.write(content)
+                log.debug(f"appending new data to {file_name}")
         else:
             with open(ftp.LOCAL_JSON_DIR + file_name, "a") as f:
                 f.write(content)
@@ -381,7 +387,7 @@ def build_subreddit_list(scanner_list) -> None:
     temp_sub_list.sort(key=str.lower)
     sub_list["subs"] = temp_sub_list
     json_sub_list = json.dumps(sub_list)
-    create_file(SUBS_FILENAME, str(json_sub_list))
+    create_file(SUBS_FILENAME, str(json_sub_list), True)
     upload_file_to_ftp_server(SUBS_FILENAME)
 
 
@@ -390,17 +396,22 @@ def is_new_month(previous_day) -> bool:
 
 
 def main_scanner_loop() -> None:
+    scanner_pool.build_scanner_list(scanner_pool.subreddit_list)
     scanner_list = scanner_pool.get_scanner_list()
     build_subreddit_list(scanner_list)
     while True:
         try:
             for scanner in scanner_list:
+                # any newly requested scanners will be added to the end of the list
+                new_scanners_added = scanner_pool.append_scanner_list(ftp.get_requested_scanners())
+                if new_scanners_added > 0:
+                    build_subreddit_list(scanner_list)
                 log.info("    Now scanning subreddit = ", scanner.sub_name)
                 seconds_elapsed = 0
                 total_posts = 0
                 total_comments = 0
                 file_name = scanner.sub_name + ".json"
-                create_file(file_name, "{\"users\":{},\"timestamp\":[]}")
+                create_file(file_name, "{\"users\":{},\"timestamp\":[]}", False)
 
                 # we don't need a try/catch here because create_file guarantees the file exists
                 with open(ftp.LOCAL_JSON_DIR + file_name, "r+") as f:
@@ -499,5 +510,4 @@ def debug_function(file_name):
 
 
 if __name__ == "__main__":
-    scanner_pool.build_scanner_list()
     main_scanner_loop()

@@ -159,8 +159,9 @@ function displayAllUsers(value)
 
     // TODO convert this UTC string into the browser's local time
     //  see here: https://www.tutorialspoint.com/how-to-convert-utc-date-time-into-local-date-time-using-javascript
-    footerText.innerText = "Last updated (UTC): " +
-        JSON.parse(sessionStorage.getItem(subsArr[value - 1] + "-timestamp"))
+    const utcTimestamp = JSON.parse(sessionStorage.getItem(subsArr[value - 1] + "-timestamp"));
+    const localizedTimestamp = new Date(utcTimestamp);
+    footerText.innerText = "Last updated: " + localizedTimestamp;
 
     document.body.className = '';
 }
@@ -282,39 +283,6 @@ function sortTableRowsByColumn( columnIndex, ascending )
 
     table.tBodies[0].appendChild( fragment );
     document.body.className = '';
-}
-
-/**
- * Sort table data based on a direction of asc or desc for a specific column
- * @param {number} n - column number calling this sort
- * @param {string} dir - direction of the sort (asc or desc)
- * @param {HTMLTableElement} targetElem - sort icon
- */
-function sortTable(n, dir = "asc", targetElem) {
-    targetElem.style.cursor = "progress";
-    let sortArr = [];
-    let table = targetElem.closest('table');
-    table.querySelectorAll('tbody > tr > td:nth-Child(' + parseInt(n) + ')').forEach((x, y) => sortArr.push(
-        {
-            sortText: x.innerHTML.toLowerCase(),
-            rowElement: x.closest('tr')
-        }));
-    var sorted = sortArr.sort(function (a, b) {
-        if (dir == "asc") {
-            if (a.sortText < b.sortText) {
-                return -1;
-            }
-        } else if (dir == "desc") {
-            if (a.sortText > b.sortText) {
-                return -1;
-            }
-        }
-        return 0;
-    });
-    sorted.forEach((x, y) => {
-        x.rowElement.parentNode.insertBefore(x.rowElement, x.rowElement.parentNode.children[y]);
-    });
-    targetElem.style.cursor = null;
 }
 
 function setSelectBoxWidth()

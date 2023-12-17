@@ -5,10 +5,17 @@ from ftplib import FTP
 from configparser import ConfigParser
 
 config = ConfigParser()
-config.read("ftp.ini")
-SERVER_ADDRESS = config["ftp"]["server_address"]
-USERNAME = config["ftp"]["username"]
-PASSWORD = config["ftp"]["password"]
+try:
+    config.read("ftp.ini")
+    SERVER_ADDRESS = config["ftp"]["server_address"]
+    USERNAME = config["ftp"]["username"]
+    PASSWORD = config["ftp"]["password"]
+except KeyError as e:
+    SERVER_ADDRESS = "0.0.0.0"
+    USERNAME = ""
+    PASSWORD = ""
+    log.error(f"{e}: Unable to parse FTP arguments, program will run but will not upload anything to FTP server.")
+
 FTP_JSON_DIR = "public_html/json"
 FTP_POLL_DIR = "public_html/poll"
 FTP_POLL_FILE = "scanner_requests.csv"  # this doesn't NEED to be a .csv
@@ -48,8 +55,9 @@ def send_file(file_to_send: str) -> str:
                 return ftp.storbinary(f"STOR {file_to_send}", file)
             else:
                 raise ftplib.error_perm("Exceeded browser session storage limit")
-    except (FileNotFoundError, ftplib.error_perm) as e:
-        log.error(str(e), ": Unable to upload file ", file_to_send, "\"")
+    except ftplib.all_errors as e:
+        error_str = str(e).split(None, 1)[0]
+        log.error(f"{error_str}: Unable to upload file {file_to_send}")
 
 
 def get_requested_scanners() -> list:
@@ -63,11 +71,15 @@ def get_requested_scanners() -> list:
     Returns:
         A list of strings that is each line of the file.
     """
+    requested_scanners = []
+
     try:
         with FTP(SERVER_ADDRESS, USERNAME, PASSWORD) as ftp:
-            requested_scanners = []
             ftp.cwd(FTP_POLL_DIR)
             ftp.retrlines(f"RETR {FTP_POLL_FILE}", requested_scanners.append)
-        return requested_scanners
-    except (FileNotFoundError, ftplib.error_perm, ftplib.error_reply) as e:
-        log.error(f"{e}: Check directory {FTP_POLL_DIR}")
+
+    except ftplib.all_errors as e:
+        error_str = str(e).split(None, 1)[0]
+        log.error(f"{error_str}: Check directory {FTP_POLL_DIR}")
+
+    return requested_scanners

@@ -121,6 +121,7 @@ function displayAllUsers(value)
         return;
     }
 
+    const searchBox = document.getElementById(("search-username-div"));
     const table = document.getElementById("output-table").getElementsByTagName("tbody")[0];
     const footerText = document.getElementById("footer-timestamp");
     const subsArr = sessionStorage.getItem(SUBS_KEY).split(",");
@@ -157,11 +158,10 @@ function displayAllUsers(value)
         newCell3.appendChild(totalNegatives);
     }
 
-    // TODO convert this UTC string into the browser's local time
-    //  see here: https://www.tutorialspoint.com/how-to-convert-utc-date-time-into-local-date-time-using-javascript
     const utcTimestamp = JSON.parse(sessionStorage.getItem(subsArr[value - 1] + "-timestamp"));
     const localizedTimestamp = new Date(utcTimestamp);
     footerText.innerText = "Last updated: " + localizedTimestamp;
+    searchBox.style.visibility = "visible";
 
     document.body.className = '';
 }

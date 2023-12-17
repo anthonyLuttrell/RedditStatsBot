@@ -18,8 +18,8 @@
   <link rel="apple-touch-icon" href="icon.png">
   <!-- Place favicon.ico in the root directory -->
 
-  <link rel="stylesheet" href="css/normalize.css?=v1.0">
-  <link rel="stylesheet" href="css/main.css?=v1.9">
+  <link rel="stylesheet" href="css/normalize.css?=v1.1">
+  <link rel="stylesheet" href="css/main.css?=v1.10">
 
   <meta name="theme-color" content="#fafafa">
 </head>
@@ -34,6 +34,12 @@
       <select id="subreddits-select" class="select-box" onchange="displayAllUsers(this.value);">
         <option value="0">-- Select a Subreddit --</option>
       </select>
+    </div>
+    <div class="request-div" id="request-sub-div">
+      <label>Add a subreddit to the queue<br>
+        <input id="request-sub" autocomplete="off" placeholder="r/" minlength="3" maxlength="21" size="21" required/>
+        <button type="button" onclick="validateRequest()">Submit</button>
+      </label>
     </div>
     <div class="search-div" id="search-username-div" style="visibility: hidden">
       <input type="text" id="search-box" onkeyup="filterInput()" placeholder="Search for username...">
@@ -64,7 +70,7 @@
   </div>
   <script src="js/vendor/modernizr-3.11.2.min.js"></script>
   <script src="js/plugins.js"></script>
-  <script src="js/main.js?=v1.1"></script>
+  <script src="js/main.js?=v1.2"></script>
 
 </body>
 

@@ -294,3 +294,23 @@ function setSelectBoxWidth()
         selectBox.style.maxWidth = "25%";
     }
 }
+
+function validateRequest()
+{
+    const userInput = document.getElementById("request-sub").value;
+    const pattern = /^([a-z0-9][_a-z0-9]{2,20})$/gmi;
+    if (pattern.test(userInput))
+    {
+        // validate the subreddit is active
+        // clear user input
+        // add it to the list on the server
+    }
+    else
+    {
+        alert(
+            "Invalid subreddit name entered!\n\n" +
+            "Subreddit names can only contain letters, numbers, and underscores.\n\n" +
+            "They must be at least 3 characters, and no more than 21 characters, " +
+            "and must not begin with an underscore")
+    }
+}

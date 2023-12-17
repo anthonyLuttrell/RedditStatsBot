@@ -344,6 +344,13 @@ textarea {
   max-width: 90%;
 }
 
+.request-div {
+  display: flex;
+  justify-content: center;
+  width: 90%;
+  max-width: 90%;
+}
+
 .table-div {
   display: flex;
   flex-direction: column;

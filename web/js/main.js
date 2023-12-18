@@ -1,4 +1,4 @@
-const JSON_PATH = "/json/";
+const JSON_PATH = location.hostname === "localhost" ? "/local_test/" : "/json/";
 const JSON_QUERY = ".json?" + Date.now().toString();
 const SUBS_STRING = "subreddits";
 const SUBS_KEY = "subs";

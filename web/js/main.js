@@ -121,6 +121,7 @@ function displayAllUsers(value)
         return;
     }
 
+    const searchBox = document.getElementById(("search-username-div"));
     const table = document.getElementById("output-table").getElementsByTagName("tbody")[0];
     const footerText = document.getElementById("footer-timestamp");
     const subsArr = sessionStorage.getItem(SUBS_KEY).split(",");
@@ -157,10 +158,10 @@ function displayAllUsers(value)
         newCell3.appendChild(totalNegatives);
     }
 
-    // TODO convert this UTC string into the browser's local time
-    //  see here: https://www.tutorialspoint.com/how-to-convert-utc-date-time-into-local-date-time-using-javascript
-    footerText.innerText = "Last updated (UTC): " +
-        JSON.parse(sessionStorage.getItem(subsArr[value - 1] + "-timestamp"))
+    const utcTimestamp = JSON.parse(sessionStorage.getItem(subsArr[value - 1] + "-timestamp"));
+    const localizedTimestamp = new Date(utcTimestamp);
+    footerText.innerText = "Last updated: " + localizedTimestamp;
+    searchBox.style.visibility = "visible";
 
     document.body.className = '';
 }
@@ -291,5 +292,25 @@ function setSelectBoxWidth()
     {
         selectBox.style.width = "25%";
         selectBox.style.maxWidth = "25%";
+    }
+}
+
+function validateRequest()
+{
+    const userInput = document.getElementById("request-sub").value;
+    const pattern = /^([a-z0-9][_a-z0-9]{2,20})$/gmi;
+    if (pattern.test(userInput))
+    {
+        // validate the subreddit is active
+        // clear user input
+        // add it to the list on the server
+    }
+    else
+    {
+        alert(
+            "Invalid subreddit name entered!\n\n" +
+            "Subreddit names can only contain letters, numbers, and underscores.\n\n" +
+            "They must be at least 3 characters, and no more than 21 characters, " +
+            "and must not begin with an underscore")
     }
 }

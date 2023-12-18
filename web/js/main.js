@@ -301,9 +301,11 @@ function validateRequest()
     const pattern = /^([a-z0-9][_a-z0-9]{2,20})$/gmi;
     if (pattern.test(userInput))
     {
-        // validate the subreddit is active
-        // clear user input
-        // add it to the list on the server
+        // 1) validate the subreddit is active using XMLHttpRequest
+        // 2) clear user input if it's valid, else prompt user that it's invalid
+        // 3) add it to the list on the server, `poll/scanner_requests.csv` (a single string without quotes per line)
+        //    a) we will have to use FTP to get/read the file contents first, then create a new file and write it to the same directory
+        //    b) we should also check if the requested sub is already in the list and prompt the user if so
     }
     else
     {

@@ -8,12 +8,12 @@
    
    b. Create a new Reddit account. This will be your bot that you will use for all of your local testing.
 
-   c. Register your bot as a script application. [Here](https://www.honchosearch.com/blog/seo/how-to-use-praw-and-crawl-reddit-for-subreddit-post-data) is a good guide on this process. The Client ID and Client Secret are the two important pieces you need. You do not need to fill out the description, about url, or redirect url. 
+   c. Register your bot as a script application. [Here](https://www.honchosearch.com/blog/seo/how-to-use-praw-and-crawl-reddit-for-subreddit-post-data) is a good guide on this process, but you must select the script option! The Client ID and Client Secret are the two important pieces you need. You do not need to fill out the description, about url, or redirect url. 
 
 3. Now that you have your bot's username, password, Client ID, and Client Secret, you need to create a `praw.ini` file to store this sensitive data in. This file should always stay on your local PC, it should never be checked into any version control software (like Git), and you should never share it with anyone else. It is already in the `.gitignore` file, which prevents Git from including it in any push/pulls that you do. For now, everything is in one directory, so just create a new file right along side everything else and name it `praw.ini`. The contents of this file are simple: 
 
    ```
-   [AnyCommonName]
+   [YourBotUsername]
    client_id: YourClientID
    client_secret: YourClientSecret 
    username: YourBotUsername

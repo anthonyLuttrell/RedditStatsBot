@@ -112,6 +112,11 @@ function displayAllUsers(value) {
     const users = JSON.parse(sessionStorage.getItem(subsArr[value - 1]));
     const totalsArray = getTotalsArray(users);
     const box = document.getElementById('output-table-div');
+    const selectBox = document.getElementById('subreddits-select');
+
+    selectBox.addEventListener('change', () => {
+        box.removeEventListener('scroll', scrollEvent);
+    })
 
     // remove all rows when you select a different sub
     box.scrollTo(box.scrollTop, 0);

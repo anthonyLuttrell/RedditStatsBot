@@ -114,19 +114,22 @@ function displayAllUsers(value) {
     const box = document.getElementById('output-table-div');
     const selectBox = document.getElementById('subreddits-select');
 
+    // when you select a different sub, the existing scroll event listener is removed
+    // a new event listener is added further down. Doing this to reset the data the event listener uses
     selectBox.addEventListener('change', () => {
         box.removeEventListener('scroll', scrollEvent);
     })
 
-    // remove all rows when you select a different sub
+    // takes the scroll bar to the top of the table when you select a different sub
     box.scrollTo(box.scrollTop, 0);
+    // remove all rows when you select a different sub
     clearTable(table.rows.length);
 
     box.addEventListener('scroll', scrollEvent)
 
+    // adds a scroll event listener which adds new rows when the scroll bar is close to the end
     function scrollEvent() {
-        console.log("I'm working");
-        if ((box.scrollHeight - box.clientHeight - box.scrollTop) < 1) {
+        if ((box.scrollHeight - box.clientHeight - box.scrollTop) <= 10) {
             let visibleRows = document.getElementsByTagName('tbody')[0].rows.length;
             let newRows = visibleRows + 50;
             for (let i = visibleRows; i < newRows; i++) {
@@ -137,8 +140,6 @@ function displayAllUsers(value) {
                     break;
                 }
             }
-            console.log(totalsArray.length);
-            console.log(document.getElementsByTagName('tbody')[0].rows.length);
         }
     }
 
@@ -157,6 +158,7 @@ function displayAllUsers(value) {
     document.body.className = '';
 }
 
+// made this bit into a function so that it can be used in multiple places without needing to rewrite all of it
 function createRows(table, user) {
     const newRow = table.insertRow(table.rows.length);
 

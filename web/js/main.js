@@ -115,7 +115,7 @@ function displayAllUsers(value) {
     const selectBox = document.getElementById('subreddits-select');
 
     // when you select a different sub, the existing scroll event listener is removed
-    // a new event listener is added further down. Doing this to reset the data the event listener uses
+    // a new event listener is added further down. Doing this to reset the data the event listener uses.
     selectBox.addEventListener('change', () => {
         box.removeEventListener('scroll', scrollEvent);
     })
@@ -127,7 +127,12 @@ function displayAllUsers(value) {
 
     box.addEventListener('scroll', scrollEvent)
 
-    // adds a scroll event listener which adds new rows when the scroll bar is close to the end
+    /**
+     * This function will get passed into an eventListener.
+     * This will generate new rows when the scroll reaches the bottom of the the already generated rows.
+     * 
+     * @function
+     */
     function scrollEvent() {
         if ((box.scrollHeight - box.clientHeight - box.scrollTop) <= 10) {
             let visibleRows = document.getElementsByTagName('tbody')[0].rows.length;
@@ -144,11 +149,12 @@ function displayAllUsers(value) {
     }
 
     document.body.className = 'waiting';
-    //for (const user of totalsArray) {
     for (let i = 0; i < 50; i++) {
         // TODO this can all be refactored into smaller nested functions
         createRows(table, totalsArray[i]);
     }
+
+    box.focus();
 
     const utcTimestamp = JSON.parse(sessionStorage.getItem(subsArr[value - 1] + "-timestamp"));
     const localizedTimestamp = new Date(utcTimestamp);
@@ -159,6 +165,12 @@ function displayAllUsers(value) {
 }
 
 // made this bit into a function so that it can be used in multiple places without needing to rewrite all of it
+/**
+ * Adds a new row of user data to the table
+ * 
+ * @param {Element} table the tbody element into which new rows are added
+ * @param {Array} user the array of user information which will be passed into the new row
+ */
 function createRows(table, user) {
     const newRow = table.insertRow(table.rows.length);
 

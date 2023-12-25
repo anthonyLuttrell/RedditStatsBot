@@ -70,8 +70,13 @@
   </div>
   <script src="js/vendor/modernizr-3.11.2.min.js"></script>
   <script src="js/plugins.js"></script>
-  <script src="js/main.js?=v1.3"></script>
-
+  <script id="main-js"></script>
+  <script>
+    let d = new Date();
+    let script = document.getElementById('main-js');
+    script.setAttribute('src', `js/main.js?=v${d.getTime()}`);
+    console.log(script.src);
+  </script>
 </body>
 
 </html>

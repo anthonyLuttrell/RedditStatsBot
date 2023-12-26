@@ -4,44 +4,10 @@ module.exports = function(grunt) {
     grunt.initConfig({
         pkg: grunt.file.readJSON('package.json'),
 
-        uglify: {
-            options: {
-                banner: '/*! <%= pkg.name %>.js last minified on <%= grunt.template.today("yyyy-mm-dd") %> */\n'
-            },
-            build: {
-                src: 'js/<%= pkg.name %>.js',
-                dest: 'build/js/<%= pkg.name %>.min.js'
-            }
-        },
-
-        cssmin: {
-            options: {
-                mergeIntoShorthands: false,
-                roundingPrecision: -1
-            },
-            target: {
-                files: {
-                    'build/css/main.css': ['css/main.css', 'css/normalize.css']
-                },
-            }
-        },
-
-        htmlmin: {
-            dist: {
-                options: {
-                    removeComments: true,
-                    collapseWhitespace: true
-                },
-                files: {
-                    'build/index.html': 'build/index.html',
-                }
-            }
-        },
-
         replace: {
             js: {
-                src: ['build/index.html'],
-                dest: 'build/',
+                src: ['index.html'],
+                overwrite: true,
                 replacements: [{
                     from: /(main\.js)\?(.*)"/gi,
                     to: () => {
@@ -50,8 +16,8 @@ module.exports = function(grunt) {
                 }]
             },
             css: {
-                src: ['build/index.html'],
-                dest: 'build/',
+                src: ['index.html'],
+                overwrite: true,
                 replacements: [{
                     from: /(main\.css)\?(.*)"/gi,
                     to: () => {
@@ -64,14 +30,14 @@ module.exports = function(grunt) {
         watch: {
             js: {
                 files: ['js/*.js'],
-                tasks: ['replace:js', 'uglify', 'htmlmin'],
+                tasks: ['replace:js'],
                 options: {
                     spawn: false,
                 }
             },
             css: {
                 files: ['css/*.css'],
-                tasks: ['replace:css', 'cssmin', 'htmlmin'],
+                tasks: ['replace:css'],
                 options: {
                     spawn: false,
                 }
@@ -81,9 +47,6 @@ module.exports = function(grunt) {
 
     // Load the plugins you want to run
     grunt.loadNpmTasks('grunt-contrib-watch');   // https://www.npmjs.com/package/grunt-contrib-watch
-    grunt.loadNpmTasks('grunt-contrib-uglify');  // https://www.npmjs.com/package/grunt-contrib-uglify
-    grunt.loadNpmTasks('grunt-contrib-cssmin');  // https://www.npmjs.com/package/grunt-contrib-cssmin
-    grunt.loadNpmTasks('grunt-contrib-htmlmin'); // https://www.npmjs.com/package/grunt-contrib-htmlmin
     grunt.loadNpmTasks('grunt-text-replace');    // https://www.npmjs.com/package/grunt-text-replace
 
     // Default task(s).

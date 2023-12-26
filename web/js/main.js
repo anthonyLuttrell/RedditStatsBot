@@ -129,12 +129,16 @@ function displayAllUsers(value)
     const totalsArray = getTotalsArray(users);
     const box = document.getElementById('output-table-div');
     const selectBox = document.getElementById('subreddits-select');
+    const search = document.getElementById('search-box');
+
+    search.value = '';
 
     // when you select a different sub, the existing scroll event listener is removed
     // a new event listener is added further down. Doing this to reset the data the event listener uses.
     selectBox.addEventListener('change', () =>
     {
         box.removeEventListener('scroll', scrollEvent);
+        search.removeEventListener('input', searchEvent);
     })
 
     // takes the scroll bar to the top of the table when you select a different sub
@@ -175,7 +179,83 @@ function displayAllUsers(value)
         createRows(table, totalsArray[i]);
     }
 
-    box.focus();
+    search.addEventListener('input', searchEvent);
+
+    function searchEvent() {
+        box.scrollTo(box.scrollTop, 0);
+        clearTable(table.rows.length);
+        box.removeEventListener('scroll', scrollEvent);
+        console.log('trigger');
+
+        if (search.value !== '')
+        {
+            search.addEventListener('input', () => {
+                box.removeEventListener('scroll', resultScrollEvent);
+            });
+
+            selectBox.addEventListener('change', () => {
+                box.removeEventListener('scroll', resultScrollEvent);
+            })
+
+            let re = new RegExp('^\(_|-\)' + search.value + '|^' + search.value, 'gi');
+            let allUsers = totalsArray;
+            let searchedUsers = allUsers.filter(user => re.test(user[0]));
+            
+            if (searchedUsers.length > 50)
+            {
+                for (let i = 0; i < 50; i++) {
+                    createRows(table, searchedUsers[i]);
+                }
+
+                box.addEventListener('scroll', resultScrollEvent);
+            }
+            else
+            {
+                for (const searchedUser of searchedUsers)
+                {
+                    createRows(table, searchedUser);
+                }
+            }
+
+            function resultScrollEvent()
+            {
+                console.log(`I'm working`);
+                if ((box.scrollHeight - box.clientHeight - box.scrollTop) <= 10)
+                {
+                    console.log(`Why am I not working?`);
+                    let visibleRows = document.getElementsByTagName('tbody')[0].rows.length;
+                    let newRows = visibleRows + 50;
+                    console.log(visibleRows, newRows);
+
+                    for (let i = visibleRows; i < newRows; i++)
+                    {
+                        console.log(`Am I working?`);
+                        createRows(table, searchedUsers[i]);
+                        visibleRows++;
+
+                        if (visibleRows >= searchedUsers.length)
+                        {
+                            console.log(`I'm also working?`)
+                            box.removeEventListener('scroll', resultScrollEvent);
+                            console.log(document.getElementsByTagName('tbody')[0].rows.length);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        else
+        {
+            for(let i = 0; i < 50; i++)
+            {
+                createRows(table, totalsArray[i]);
+            }
+
+            box.addEventListener('scroll', scrollEvent);
+        }
+
+        
+    }
 
     const utcTimestamp = JSON.parse(sessionStorage.getItem(subsArr[value - 1] + "-timestamp"));
     const localizedTimestamp = new Date(utcTimestamp);
@@ -275,7 +355,7 @@ function getTotalsArray(usersObj)
     return totalsArray;
 }
 
-function filterInput()
+/* function filterInput()
 {
     const input = document.getElementById("search-box");
     const filter = input.value.toUpperCase();
@@ -298,7 +378,7 @@ function filterInput()
             }
         }
     }
-}
+} */
 
 function clearTable(tableLength)
 {

@@ -175,15 +175,29 @@ function displayAllUsers(value)
     }
 
     document.body.className = 'waiting';
-    for (let i = 0; i < 50; i++)
+
+    // Added condition since it's a possibility that there might be less than 50 user data for some subreddits.
+    if (totalsArray.length > 50)
     {
-        createRows(table, totalsArray[i]);
+        for (let i = 0; i < 50; i++)
+        {
+            createRows(table, totalsArray[i]);
+        }
+
+        // Added the search function as an event initialised inside the displayAllUsers.
+        // This means that it can access totalsArray from inside this function to use in
+        // the event passed into the event listener.
+        search.addEventListener('input', searchEvent);
+    }
+    else 
+    {
+        for (const user of totalsArray)
+        {
+            createRows(table, user);
+        }
     }
 
-    // Added the search function as an event initialised inside the displayAllUsers.
-    // This means that it can access totalsArray from inside this function to use in
-    // the event passed into the event listener.
-    search.addEventListener('input', searchEvent);
+    
 
     /**
      * This function will be passed into an event listener.
@@ -194,16 +208,21 @@ function displayAllUsers(value)
     function searchEvent() 
     {
         box.scrollTo(box.scrollTop, 0);
+        // Must clear the existing table before new rows are created.
+        // Removed the existing scroll event so that it won't trigger when searching.
         clearTable(table.rows.length);
         box.removeEventListener('scroll', scrollEvent);
 
         if (search.value !== '')
         {
+            // Every time a new input is added, whether it's a new letter or a word,
+            // the current event listener must be removed and replaced with a new one.
             search.addEventListener('input', () => 
             {
                 box.removeEventListener('scroll', resultScrollEvent);
             });
 
+            // The event listener should also be rid of when the select input is changed.
             selectBox.addEventListener('change', () => 
             {
                 box.removeEventListener('scroll', resultScrollEvent);
@@ -213,6 +232,9 @@ function displayAllUsers(value)
             let allUsers = totalsArray;
             let searchedUsers = allUsers.filter(user => re.test(user[0]));
             
+            // Condition was added because I realised that there are not always more than 50 results.
+            // When there are less than 50 results, but the for loop continues to try make new rows,
+            // an error message is thrown in the console.
             if (searchedUsers.length > 50)
             {
                 for (let i = 0; i < 50; i++) {
@@ -262,6 +284,7 @@ function displayAllUsers(value)
         }
         else
         {
+            // When the search bar is empty, it displays all user data like it did before.
             for(let i = 0; i < 50; i++)
             {
                 createRows(table, totalsArray[i]);

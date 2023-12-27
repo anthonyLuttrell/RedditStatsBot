@@ -24,11 +24,6 @@ body {
   flex-direction: column;
 }
 
-thead {
-  position: sticky;
-  top: 0;
-}
-
 /*
  * Remove text-shadow in selection highlight:
  * https://twitter.com/miketaylr/status/12228805301
@@ -387,6 +382,11 @@ textarea {
   width: 100%; /* Full-width */
   border: 1px solid #ddd; /* Add a grey border */
   font-size: 12px; /* Increase font-size */
+}
+
+#output-table thead {
+  position: sticky;
+  top: 0;
 }
 
 #output-table th, #output-table td {

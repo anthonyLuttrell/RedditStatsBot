@@ -151,6 +151,7 @@ function displayAllUsers(value)
     /**
      * This function will get passed into an eventListener.
      * This will generate new rows when the scroll reaches the bottom of the already generated rows.
+     * This is for when there are more than 50 arrays of user data.
      *
      * @function
      */
@@ -179,21 +180,32 @@ function displayAllUsers(value)
         createRows(table, totalsArray[i]);
     }
 
+    // Added the search function as an event initialised inside the displayAllUsers.
+    // This means that it can access totalsArray from inside this function to use in
+    // the event passed into the event listener.
     search.addEventListener('input', searchEvent);
 
-    function searchEvent() {
+    /**
+     * This function will be passed into an event listener.
+     * This will filter through the totalsArray if there is any input and display the user data on the table.
+     * 
+     * @function
+     */
+    function searchEvent() 
+    {
         box.scrollTo(box.scrollTop, 0);
         clearTable(table.rows.length);
         box.removeEventListener('scroll', scrollEvent);
-        console.log('trigger');
 
         if (search.value !== '')
         {
-            search.addEventListener('input', () => {
+            search.addEventListener('input', () => 
+            {
                 box.removeEventListener('scroll', resultScrollEvent);
             });
 
-            selectBox.addEventListener('change', () => {
+            selectBox.addEventListener('change', () => 
+            {
                 box.removeEventListener('scroll', resultScrollEvent);
             })
 
@@ -217,27 +229,31 @@ function displayAllUsers(value)
                 }
             }
 
+            // I had to make a seperate scroll event function for the search results because the parameters
+            // passed into the createRows function is different to the first scroll event made.
+
+            /**
+             * This will be passed into an event listener.
+             * This will generate new rows when the scroll bar reaches close to the bottom.
+             * This is for when there are more than 50 search results.
+             * 
+             * @function
+             */
             function resultScrollEvent()
             {
-                console.log(`I'm working`);
                 if ((box.scrollHeight - box.clientHeight - box.scrollTop) <= 10)
                 {
-                    console.log(`Why am I not working?`);
                     let visibleRows = document.getElementsByTagName('tbody')[0].rows.length;
                     let newRows = visibleRows + 50;
-                    console.log(visibleRows, newRows);
-
+                    
                     for (let i = visibleRows; i < newRows; i++)
                     {
-                        console.log(`Am I working?`);
                         createRows(table, searchedUsers[i]);
                         visibleRows++;
 
                         if (visibleRows >= searchedUsers.length)
                         {
-                            console.log(`I'm also working?`)
                             box.removeEventListener('scroll', resultScrollEvent);
-                            console.log(document.getElementsByTagName('tbody')[0].rows.length);
                             break;
                         }
                     }

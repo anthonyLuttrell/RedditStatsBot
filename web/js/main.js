@@ -261,13 +261,29 @@ function scrollEvent()
         {
             console.log('I create!!');
             createRows(table, mallableArray[i]);
+            visibleRows++;
         
-            if (visibleRows.length >= mallableArray.length)
+            if (visibleRows >= mallableArray.length)
             {
                 break;
             }
         }
     }
+}
+
+function sortTables(index)
+{
+    const data = accessData(document.getElementById('subreddits-select').value)
+    const searchBox = data.searchBox;
+    const table = data.table;
+    const footerText = data.footerText;
+    const subsArr = data.subsArr;
+    const totalsArray = data.totalsArray;
+    const mallableArray = data.mallableArray;
+    const box = data.box;
+    const search = data.search;
+
+    
 }
 
 function truncateUsername(user)

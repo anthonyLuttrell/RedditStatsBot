@@ -121,6 +121,57 @@ function displayAllUsers(value)
         return;
     }
 
+    const data = accessData(value)
+    const searchBox = data.searchBox;
+    const table = data.table;
+    const footerText = data.footerText;
+    const subsArr = data.subsArr;
+    const totalsArray = data.totalsArray;
+    const box = data.box;
+    const search = data.search;
+
+    search.value = '';
+
+    // takes the scroll bar to the top of the table when you select a different sub
+    box.scrollTo(box.scrollTop, 0);
+    // remove all rows when you select a different sub
+    clearTable(table.rows.length);
+
+    /**
+     * This function will get passed into an eventListener.
+     * This will generate new rows when the scroll reaches the bottom of the already generated rows.
+     * This is for when there are more than 50 arrays of user data.
+     *
+     * @function
+     */
+
+    document.body.className = 'waiting';
+
+    if (totalsArray.length > 50)
+    {
+        for (let i = 0; i < 50; i++)
+        {
+            createRows(table, totalsArray[i]);
+        }
+    }
+    else
+    {
+        for (const user of totalsArray)
+        {
+            createRows(table, user);
+        }
+    }
+
+    const utcTimestamp = JSON.parse(sessionStorage.getItem(subsArr[value - 1] + "-timestamp"));
+    const localizedTimestamp = new Date(utcTimestamp);
+    footerText.innerText = "Last updated: " + localizedTimestamp;
+    searchBox.style.visibility = "visible";
+
+    document.body.className = '';
+}
+
+function accessData(value)
+{
     const searchBox = document.getElementById(("search-username-div"));
     const table = document.getElementById("output-table").getElementsByTagName("tbody")[0];
     const footerText = document.getElementById("footer-timestamp");
@@ -131,177 +182,27 @@ function displayAllUsers(value)
     const selectBox = document.getElementById('subreddits-select');
     const search = document.getElementById('search-box');
 
-    search.value = '';
+    let isSearching = (search.value !== '');
+    let isSorting = [0, 0, 0, 0];
+    let re = new RegExp('^\(-|_\)' + search.value + '|^' + search.value, 'gi');
+    let mallableArray = (search.value !== '') ? totalsArray.filter(user => re.test(user[0])) : totalsArray;
 
-    // when you select a different sub, the existing scroll event listener is removed
-    // a new event listener is added further down. Doing this to reset the data the event listener uses.
-    selectBox.addEventListener('change', () =>
-    {
-        box.removeEventListener('scroll', scrollEvent);
-        search.removeEventListener('input', searchEvent);
-    })
+    const data = {
+        searchBox: searchBox,
+        table: table,
+        footerText: footerText,
+        subsArr: subsArr,
+        users: users,
+        totalsArray: totalsArray,
+        mallableArray: mallableArray,
+        box: box,
+        selectBox: selectBox,
+        search: search,
+        isSearching: isSearching,
+        isSorting: isSorting
+    };
 
-    // takes the scroll bar to the top of the table when you select a different sub
-    box.scrollTo(box.scrollTop, 0);
-    // remove all rows when you select a different sub
-    clearTable(table.rows.length);
-
-    box.addEventListener('scroll', scrollEvent)
-
-    /**
-     * This function will get passed into an eventListener.
-     * This will generate new rows when the scroll reaches the bottom of the already generated rows.
-     * This is for when there are more than 50 arrays of user data.
-     *
-     * @function
-     */
-    function scrollEvent()
-    {
-        if ((box.scrollHeight - box.clientHeight - box.scrollTop) <= 10)
-        {
-            let visibleRows = document.getElementsByTagName('tbody')[0].rows.length;
-            let newRows = visibleRows + 50;
-            for (let i = visibleRows; i < newRows; i++)
-            {
-                createRows(table, totalsArray[i]);
-                visibleRows++;
-                if (visibleRows >= totalsArray.length)
-                {
-                    box.removeEventListener('scroll', scrollEvent);
-                    break;
-                }
-            }
-        }
-    }
-
-    document.body.className = 'waiting';
-
-    // Added condition since it's a possibility that there might be less than 50 user data for some subreddits.
-    if (totalsArray.length > 50)
-    {
-        for (let i = 0; i < 50; i++)
-        {
-            createRows(table, totalsArray[i]);
-        }
-
-        // Added the search function as an event initialised inside the displayAllUsers.
-        // This means that it can access totalsArray from inside this function to use in
-        // the event passed into the event listener.
-        search.addEventListener('input', searchEvent);
-    }
-    else 
-    {
-        for (const user of totalsArray)
-        {
-            createRows(table, user);
-        }
-    }
-
-    
-
-    /**
-     * This function will be passed into an event listener.
-     * This will filter through the totalsArray if there is any input and display the user data on the table.
-     * 
-     * @function
-     */
-    function searchEvent() 
-    {
-        box.scrollTo(box.scrollTop, 0);
-        // Must clear the existing table before new rows are created.
-        // Removed the existing scroll event so that it won't trigger when searching.
-        clearTable(table.rows.length);
-        box.removeEventListener('scroll', scrollEvent);
-
-        if (search.value !== '')
-        {
-            // Every time a new input is added, whether it's a new letter or a word,
-            // the current event listener must be removed and replaced with a new one.
-            search.addEventListener('input', () => 
-            {
-                box.removeEventListener('scroll', resultScrollEvent);
-            });
-
-            // The event listener should also be rid of when the select input is changed.
-            selectBox.addEventListener('change', () => 
-            {
-                box.removeEventListener('scroll', resultScrollEvent);
-            })
-
-            let re = new RegExp('^\(_|-\)' + search.value + '|^' + search.value, 'gi');
-            let allUsers = totalsArray;
-            let searchedUsers = allUsers.filter(user => re.test(user[0]));
-            
-            // Condition was added because I realised that there are not always more than 50 results.
-            // When there are less than 50 results, but the for loop continues to try make new rows,
-            // an error message is thrown in the console.
-            if (searchedUsers.length > 50)
-            {
-                for (let i = 0; i < 50; i++) {
-                    createRows(table, searchedUsers[i]);
-                }
-
-                box.addEventListener('scroll', resultScrollEvent);
-            }
-            else
-            {
-                for (const searchedUser of searchedUsers)
-                {
-                    createRows(table, searchedUser);
-                }
-            }
-
-            // I had to make a seperate scroll event function for the search results because the parameters
-            // passed into the createRows function is different to the first scroll event made.
-
-            /**
-             * This will be passed into an event listener.
-             * This will generate new rows when the scroll bar reaches close to the bottom.
-             * This is for when there are more than 50 search results.
-             * 
-             * @function
-             */
-            function resultScrollEvent()
-            {
-                if ((box.scrollHeight - box.clientHeight - box.scrollTop) <= 10)
-                {
-                    let visibleRows = document.getElementsByTagName('tbody')[0].rows.length;
-                    let newRows = visibleRows + 50;
-                    
-                    for (let i = visibleRows; i < newRows; i++)
-                    {
-                        createRows(table, searchedUsers[i]);
-                        visibleRows++;
-
-                        if (visibleRows >= searchedUsers.length)
-                        {
-                            box.removeEventListener('scroll', resultScrollEvent);
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-        else
-        {
-            // When the search bar is empty, it displays all user data like it did before.
-            for(let i = 0; i < 50; i++)
-            {
-                createRows(table, totalsArray[i]);
-            }
-
-            box.addEventListener('scroll', scrollEvent);
-        }
-
-        
-    }
-
-    const utcTimestamp = JSON.parse(sessionStorage.getItem(subsArr[value - 1] + "-timestamp"));
-    const localizedTimestamp = new Date(utcTimestamp);
-    footerText.innerText = "Last updated: " + localizedTimestamp;
-    searchBox.style.visibility = "visible";
-
-    document.body.className = '';
+    return data;
 }
 
 /**
@@ -333,6 +234,40 @@ function createRows(table, user)
     newCell1.appendChild(totalComments);
     newCell2.appendChild(totalScore);
     newCell3.appendChild(totalNegatives);
+}
+
+function scrollEvent()
+{
+    const data = accessData(document.getElementById('subreddits-select').value)
+    const searchBox = data.searchBox;
+    const table = data.table;
+    const footerText = data.footerText;
+    const subsArr = data.subsArr;
+    const totalsArray = data.totalsArray;
+    const mallableArray = data.mallableArray;
+    const box = data.box;
+    const search = data.search;
+
+    console.log('hello?');
+
+    
+    if ((box.scrollHeight - box.clientHeight - box.scrollTop) <= 10 && mallableArray.length > table.rows.length)
+    {
+        console.log('hi');
+        let visibleRows = table.rows.length;
+        let newRows = visibleRows + 50;
+
+        for (let i = visibleRows; i < newRows; i++)
+        {
+            console.log('I create!!');
+            createRows(table, mallableArray[i]);
+        
+            if (visibleRows.length >= mallableArray.length)
+            {
+                break;
+            }
+        }
+    }
 }
 
 function truncateUsername(user)

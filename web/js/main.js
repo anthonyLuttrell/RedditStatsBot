@@ -7,6 +7,24 @@ const TOTAL_COMMENTS_IDX = 1;
 const TOTAL_SCORE_IDX = 2;
 const TOTAL_NEG_COMMENTS_IDX = 3;
 const WINDOW_RATIO = window.innerWidth / window.innerHeight;
+// I split up the displayUserData function but I needed to use some of the variables initialised
+// within the function in other functions so I made this object to store those variables so that
+// they can be used in multiple places after being initialised.
+const data = {
+    searchBox: document.getElementById(("search-username-div")),
+    table: document.getElementById("output-table").getElementsByTagName("tbody")[0],
+    subsArr: [],
+    users: {},
+    totalsArray: [],
+    mutableArray: [],
+    mutatedArray: [],
+    searchedArray: [],
+    box: document.getElementById('output-table-div'),
+    selectBox: document.getElementById('subreddits-select'),
+    search: document.getElementById('search-box'),
+    isSearching: (document.getElementById('search-box').value !== ''),
+    isSorting: [0, 0, 0, 0]
+}
 
 window.onload = () =>
 {
@@ -121,14 +139,22 @@ function displayAllUsers(value)
         return;
     }
 
-    const data = accessData(value)
     const searchBox = data.searchBox;
     const table = data.table;
-    const footerText = data.footerText;
-    const subsArr = data.subsArr;
-    const totalsArray = data.totalsArray;
+    const footerText = document.getElementById("footer-timestamp");
+    const subsArr = sessionStorage.getItem(SUBS_KEY).split(",");
+    const users = JSON.parse(sessionStorage.getItem(subsArr[value - 1]));
+    const totalsArray = getTotalsArray(users);
     const box = data.box;
     const search = data.search;
+
+    // I stored initialised variables inside a global object so that they can be used elsewhere.
+    data.subsArr = subsArr;
+    data.users = users;
+    data.totalsArray = totalsArray;
+    data.mutableArray = totalsArray.slice();
+    data.mutatedArray = totalsArray.slice();
+    data.isSorting = [0, 0, 0, 0];
 
     search.value = '';
 
@@ -136,14 +162,6 @@ function displayAllUsers(value)
     box.scrollTo(box.scrollTop, 0);
     // remove all rows when you select a different sub
     clearTable(table.rows.length);
-
-    /**
-     * This function will get passed into an eventListener.
-     * This will generate new rows when the scroll reaches the bottom of the already generated rows.
-     * This is for when there are more than 50 arrays of user data.
-     *
-     * @function
-     */
 
     document.body.className = 'waiting';
 
@@ -168,41 +186,6 @@ function displayAllUsers(value)
     searchBox.style.visibility = "visible";
 
     document.body.className = '';
-}
-
-function accessData(value)
-{
-    const searchBox = document.getElementById(("search-username-div"));
-    const table = document.getElementById("output-table").getElementsByTagName("tbody")[0];
-    const footerText = document.getElementById("footer-timestamp");
-    const subsArr = sessionStorage.getItem(SUBS_KEY).split(",");
-    const users = JSON.parse(sessionStorage.getItem(subsArr[value - 1]));
-    const totalsArray = getTotalsArray(users);
-    const box = document.getElementById('output-table-div');
-    const selectBox = document.getElementById('subreddits-select');
-    const search = document.getElementById('search-box');
-
-    let isSearching = (search.value !== '');
-    let isSorting = [0, 0, 0, 0];
-    let re = new RegExp('^\(-|_\)' + search.value + '|^' + search.value, 'gi');
-    let mallableArray = (search.value !== '') ? totalsArray.filter(user => re.test(user[0])) : totalsArray;
-
-    const data = {
-        searchBox: searchBox,
-        table: table,
-        footerText: footerText,
-        subsArr: subsArr,
-        users: users,
-        totalsArray: totalsArray,
-        mallableArray: mallableArray,
-        box: box,
-        selectBox: selectBox,
-        search: search,
-        isSearching: isSearching,
-        isSorting: isSorting
-    };
-
-    return data;
 }
 
 /**
@@ -236,34 +219,32 @@ function createRows(table, user)
     newCell3.appendChild(totalNegatives);
 }
 
+/**
+ * Adds more rows of user data when scroll bar is close to the end and not all
+ * user data has been displayed.
+ * 
+ * @function
+ */
 function scrollEvent()
 {
-    const data = accessData(document.getElementById('subreddits-select').value)
-    const searchBox = data.searchBox;
+    // Retrieve properties of the global variable 'data' to be used in this function
     const table = data.table;
-    const footerText = data.footerText;
-    const subsArr = data.subsArr;
-    const totalsArray = data.totalsArray;
-    const mallableArray = data.mallableArray;
+    const mutableArray = data.mutableArray;
     const box = data.box;
-    const search = data.search;
 
-    console.log('hello?');
 
-    
-    if ((box.scrollHeight - box.clientHeight - box.scrollTop) <= 10 && mallableArray.length > table.rows.length)
+    // Only trigger if both conditions are met
+    if ((box.scrollHeight - box.clientHeight - box.scrollTop) <= 10 && mutableArray.length > table.rows.length)
     {
-        console.log('hi');
         let visibleRows = table.rows.length;
         let newRows = visibleRows + 50;
 
         for (let i = visibleRows; i < newRows; i++)
         {
-            console.log('I create!!');
-            createRows(table, mallableArray[i]);
+            createRows(table, mutableArray[i]);
             visibleRows++;
         
-            if (visibleRows >= mallableArray.length)
+            if (visibleRows >= mutableArray.length)
             {
                 break;
             }
@@ -271,19 +252,181 @@ function scrollEvent()
     }
 }
 
+/**
+ * Sorts through the user data and siplays it on the table in either alphabetical
+ * or numerical order based on what part of the data is being sorted through.
+ * Sorted data is displayed on the table.
+ * 
+ * @param {Number} index 
+ * @returns
+ */
 function sortTables(index)
 {
-    const data = accessData(document.getElementById('subreddits-select').value)
-    const searchBox = data.searchBox;
+    // Only sort if table is not empty
+    if (data.table.rows.length === 0) return;
+
+    // Retrieve properties of the global object 'data' to be used in this function.
     const table = data.table;
-    const footerText = data.footerText;
-    const subsArr = data.subsArr;
-    const totalsArray = data.totalsArray;
-    const mallableArray = data.mallableArray;
+    const box = data.box;
+
+    let mutableArray = data.mutableArray;
+    // isSorting is an array which records how the table is sorted currently and is
+    // useful to tell the browser how to sort it when header is clicked.
+    let isSorting = data.isSorting;
+    // isSorting is a boolean variable that stores whether the search bar is empty or not.
+    let isSearching = data.isSearching;
+
+    box.scrollTo(box.scrollTop, 0);
+    clearTable(table.rows.length);
+
+    if (index !== 0)
+    {
+        if (isSorting[index] === 0)
+        {
+            // isSorting[index] === 0 means that it is not sorted in any order.
+            // if isSorting[index] === 0, we need to sort the table in ascending order.
+            mutableArray = mutableArray.sort((a, b) =>
+            {
+                return a[index] - b[index];
+            });
+
+            data.isSorting = [0, 0, 0, 0];
+            data.isSorting[index] = 1;
+        }
+        else if (isSorting[index] === 1)
+        {
+            // isSorting[index] === 1 means that it is sorted in ascending order.
+            // is isSorting[index] === 1, we need to sort the table in descending order.
+            mutableArray = mutableArray.sort((a, b) =>
+            {
+                return b[index] - a[index];
+            });
+
+            data.isSorting = [0, 0, 0, 0];
+            data.isSorting[index] = 2;
+        }
+        else
+        {
+            // else here means isSorting[index] === 2 means it is in descending order.
+            // if else, we need to return it to how it originally was.
+            if (!isSearching)
+            {
+                mutableArray = data.totalsArray.slice();
+            }
+            else
+            {
+                mutableArray = data.searchedArray.slice();
+            }
+
+            data.isSorting = [0, 0, 0, 0];
+        }
+    }
+    else
+    {
+        if (isSorting[index] === 0)
+        {
+            mutableArray = mutableArray.sort((a, b) => 
+            {
+                return a[index].localeCompare(b[index], undefined, {sensitivity: 'base'})
+            });
+
+            data.isSorting = [0, 0, 0, 0];
+            data.isSorting[index] = 1;
+        }
+        else if (isSorting[index] === 1)
+        {
+            mutableArray = mutableArray.sort((a, b) => 
+            {
+                return a[index].localeCompare(b[index], undefined, {sensitivity: 'base'})
+            }).reverse();
+
+            data.isSorting = [0, 0, 0, 0];
+            data.isSorting[index] = 2;
+        }
+        else
+        {
+            if (!isSearching)
+            {
+                mutableArray = data.totalsArray.slice();
+            }
+            else
+            {
+                mutableArray = data.searchedArray.slice();
+            }
+
+            data.isSorting = [0, 0, 0, 0];
+        }
+    }
+
+    if (mutableArray.length > 50)
+    {
+        for (let i = 0; i < 50; i++)
+        {
+            createRows(table, mutableArray[i]);
+        }
+    }
+    else
+    {
+        for (const arr of mutableArray)
+        {
+            createRows(table, arr);
+        }
+    }
+    
+    data.mutableArray = mutableArray;
+    data.mutatedArray = mutableArray.slice();
+}
+
+/**
+ * Filters out user data based on whether username matches the search input.
+ * 
+ * @function
+ */
+function searchEvent()
+{
+    console.log('hi');
+    const table = data.table;
     const box = data.box;
     const search = data.search;
+    const mutatedArray = data.mutatedArray.slice();
 
-    
+    let mutableArray = data.mutableArray;
+    let re = new RegExp('^\(-|_\)' + search.value + '|^' + search.value, 'gi');
+
+    box.scrollTo(box.scrollTop, 0);
+    clearTable(table.rows.length);
+
+
+    if (search.value !== '')
+    {
+        mutableArray = mutableArray.filter(user => re.test(user[0]));
+        data.isSearching = true;
+    }
+    else
+    {
+        mutableArray = mutatedArray;
+        data.isSearching = false;
+    }
+
+    if (mutableArray.length > 50)
+    {
+        for (let i = 0; i < 50; i++)
+        {
+            createRows(table, mutableArray[i]);
+        }
+    }
+    else
+    {
+        for (const user of mutableArray)
+        {
+            createRows(table, user);
+        }
+    }
+
+    data.mutableArray = mutableArray;
+    data.searchedArray = mutableArray.slice();
+    console.log(data.mutableArray);
+    console.log(data.searchedArray);
 }
 
 function truncateUsername(user)

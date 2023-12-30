@@ -41,16 +41,16 @@
       </label>
     </div>
     <div class="search-div" id="search-username-div" style="visibility: hidden">
-      <input type="text" id="search-box" placeholder="Search for username...">
+      <input type="text" id="search-box" placeholder="Search for username..." oninput="searchEvent()">
     </div>
     <div class="table-div" id="output-table-div" onscroll="scrollEvent()">
       <table id="output-table">
         <thead>
         <tr class="header">
-          <th style="width:33%;" onclick="sortTableRowsByColumn(0)">User</th>
-          <th style="width:22.3%;" onclick="sortTableRowsByColumn(1)">Comments</th>
-          <th style="width:22.3%;" onclick="sortTableRowsByColumn(2)">Score</th>
-          <th style="width:22.3%;" onclick="sortTableRowsByColumn(3)">Negs</th>
+          <th style="width:33%;" onclick="sortTables(0)">User</th>
+          <th style="width:22.3%;" onclick="sortTables(1)">Comments</th>
+          <th style="width:22.3%;" onclick="sortTables(2)">Score</th>
+          <th style="width:22.3%;" onclick="sortTables(3)">Negs</th>
         </tr>
         </thead>
         <tbody>

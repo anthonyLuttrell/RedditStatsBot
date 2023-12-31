@@ -7,6 +7,23 @@ const TOTAL_COMMENTS_IDX = 1;
 const TOTAL_SCORE_IDX = 2;
 const TOTAL_NEG_COMMENTS_IDX = 3;
 const WINDOW_RATIO = window.innerWidth / window.innerHeight;
+// I split up the displayUserData function but I needed to use some of the variables initialised
+// within the function in other functions so I made this object to store those variables so that
+// they can be used in multiple places after being initialised.
+const data = {
+    searchBox: document.getElementById(("search-username-div")),
+    table: document.getElementById("output-table").getElementsByTagName("tbody")[0],
+    subsArr: [],
+    users: {},
+    totalsArray: [],
+    mutableArray: [],
+    searchedArray: [],
+    box: document.getElementById('output-table-div'),
+    selectBox: document.getElementById('subreddits-select'),
+    search: document.getElementById('search-box'),
+    isSearching: (document.getElementById('search-box').value !== ''),
+    isSorting: [0, 0, 0, 0]
+}
 
 window.onload = () =>
 {
@@ -121,179 +138,44 @@ function displayAllUsers(value)
         return;
     }
 
-    const searchBox = document.getElementById(("search-username-div"));
-    const table = document.getElementById("output-table").getElementsByTagName("tbody")[0];
+    const searchBox = data.searchBox;
+    const table = data.table;
     const footerText = document.getElementById("footer-timestamp");
     const subsArr = sessionStorage.getItem(SUBS_KEY).split(",");
     const users = JSON.parse(sessionStorage.getItem(subsArr[value - 1]));
     const totalsArray = getTotalsArray(users);
-    const box = document.getElementById('output-table-div');
-    const selectBox = document.getElementById('subreddits-select');
-    const search = document.getElementById('search-box');
+    const box = data.box;
+    const search = data.search;
+
+    // I stored initialised variables inside a global object so that they can be used elsewhere.
+    data.subsArr = subsArr;
+    data.users = users;
+    data.totalsArray = totalsArray;
+    data.mutableArray = totalsArray.slice();
+    data.isSorting = [0, 0, 0, 0];
 
     search.value = '';
-
-    // when you select a different sub, the existing scroll event listener is removed
-    // a new event listener is added further down. Doing this to reset the data the event listener uses.
-    selectBox.addEventListener('change', () =>
-    {
-        box.removeEventListener('scroll', scrollEvent);
-        search.removeEventListener('input', searchEvent);
-    })
 
     // takes the scroll bar to the top of the table when you select a different sub
     box.scrollTo(box.scrollTop, 0);
     // remove all rows when you select a different sub
     clearTable(table.rows.length);
 
-    box.addEventListener('scroll', scrollEvent)
-
-    /**
-     * This function will get passed into an eventListener.
-     * This will generate new rows when the scroll reaches the bottom of the already generated rows.
-     * This is for when there are more than 50 arrays of user data.
-     *
-     * @function
-     */
-    function scrollEvent()
-    {
-        if ((box.scrollHeight - box.clientHeight - box.scrollTop) <= 10)
-        {
-            let visibleRows = document.getElementsByTagName('tbody')[0].rows.length;
-            let newRows = visibleRows + 50;
-            for (let i = visibleRows; i < newRows; i++)
-            {
-                createRows(table, totalsArray[i]);
-                visibleRows++;
-                if (visibleRows >= totalsArray.length)
-                {
-                    box.removeEventListener('scroll', scrollEvent);
-                    break;
-                }
-            }
-        }
-    }
-
     document.body.className = 'waiting';
 
-    // Added condition since it's a possibility that there might be less than 50 user data for some subreddits.
     if (totalsArray.length > 50)
     {
         for (let i = 0; i < 50; i++)
         {
             createRows(table, totalsArray[i]);
         }
-
-        // Added the search function as an event initialised inside the displayAllUsers.
-        // This means that it can access totalsArray from inside this function to use in
-        // the event passed into the event listener.
-        search.addEventListener('input', searchEvent);
     }
-    else 
+    else
     {
         for (const user of totalsArray)
         {
             createRows(table, user);
         }
-    }
-
-    
-
-    /**
-     * This function will be passed into an event listener.
-     * This will filter through the totalsArray if there is any input and display the user data on the table.
-     * 
-     * @function
-     */
-    function searchEvent() 
-    {
-        box.scrollTo(box.scrollTop, 0);
-        // Must clear the existing table before new rows are created.
-        // Removed the existing scroll event so that it won't trigger when searching.
-        clearTable(table.rows.length);
-        box.removeEventListener('scroll', scrollEvent);
-
-        if (search.value !== '')
-        {
-            // Every time a new input is added, whether it's a new letter or a word,
-            // the current event listener must be removed and replaced with a new one.
-            search.addEventListener('input', () => 
-            {
-                box.removeEventListener('scroll', resultScrollEvent);
-            });
-
-            // The event listener should also be rid of when the select input is changed.
-            selectBox.addEventListener('change', () => 
-            {
-                box.removeEventListener('scroll', resultScrollEvent);
-            })
-
-            let re = new RegExp('^\(_|-\)' + search.value + '|^' + search.value, 'gi');
-            let allUsers = totalsArray;
-            let searchedUsers = allUsers.filter(user => re.test(user[0]));
-            
-            // Condition was added because I realised that there are not always more than 50 results.
-            // When there are less than 50 results, but the for loop continues to try make new rows,
-            // an error message is thrown in the console.
-            if (searchedUsers.length > 50)
-            {
-                for (let i = 0; i < 50; i++) {
-                    createRows(table, searchedUsers[i]);
-                }
-
-                box.addEventListener('scroll', resultScrollEvent);
-            }
-            else
-            {
-                for (const searchedUser of searchedUsers)
-                {
-                    createRows(table, searchedUser);
-                }
-            }
-
-            // I had to make a seperate scroll event function for the search results because the parameters
-            // passed into the createRows function is different to the first scroll event made.
-
-            /**
-             * This will be passed into an event listener.
-             * This will generate new rows when the scroll bar reaches close to the bottom.
-             * This is for when there are more than 50 search results.
-             * 
-             * @function
-             */
-            function resultScrollEvent()
-            {
-                if ((box.scrollHeight - box.clientHeight - box.scrollTop) <= 10)
-                {
-                    let visibleRows = document.getElementsByTagName('tbody')[0].rows.length;
-                    let newRows = visibleRows + 50;
-                    
-                    for (let i = visibleRows; i < newRows; i++)
-                    {
-                        createRows(table, searchedUsers[i]);
-                        visibleRows++;
-
-                        if (visibleRows >= searchedUsers.length)
-                        {
-                            box.removeEventListener('scroll', resultScrollEvent);
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-        else
-        {
-            // When the search bar is empty, it displays all user data like it did before.
-            for(let i = 0; i < 50; i++)
-            {
-                createRows(table, totalsArray[i]);
-            }
-
-            box.addEventListener('scroll', scrollEvent);
-        }
-
-        
     }
 
     const utcTimestamp = JSON.parse(sessionStorage.getItem(subsArr[value - 1] + "-timestamp"));
@@ -333,6 +215,216 @@ function createRows(table, user)
     newCell1.appendChild(totalComments);
     newCell2.appendChild(totalScore);
     newCell3.appendChild(totalNegatives);
+}
+
+/**
+ * Adds more rows of user data when scroll bar is close to the end and not all
+ * user data has been displayed.
+ * 
+ * @function
+ */
+function scrollEvent()
+{
+    // Retrieve properties of the global variable 'data' to be used in this function
+    const table = data.table;
+    const mutableArray = data.mutableArray;
+    const box = data.box;
+
+
+    // Only trigger if both conditions are met
+    if ((box.scrollHeight - box.clientHeight - box.scrollTop) <= 10 && mutableArray.length > table.rows.length)
+    {
+        let visibleRows = table.rows.length;
+        let newRows = visibleRows + 50;
+
+        for (let i = visibleRows; i < newRows; i++)
+        {
+            createRows(table, mutableArray[i]);
+            visibleRows++;
+        
+            if (visibleRows >= mutableArray.length)
+            {
+                break;
+            }
+        }
+    }
+}
+
+/**
+ * Sorts through the user data and siplays it on the table in either alphabetical
+ * or numerical order based on what part of the data is being sorted through.
+ * Sorted data is displayed on the table.
+ * 
+ * @param {Number} index 
+ * @returns
+ */
+function sortTables(index)
+{
+    // Only sort if table is not empty
+    if (data.table.rows.length === 0) return;
+
+    // Retrieve properties of the global object 'data' to be used in this function.
+    const table = data.table;
+    const box = data.box;
+
+    let mutableArray = data.mutableArray;
+    // isSorting is an array which records how the table is sorted currently and is
+    // useful to tell the browser how to sort it when header is clicked.
+    let isSorting = data.isSorting;
+    // isSorting is a boolean variable that stores whether the search bar is empty or not.
+    let isSearching = data.isSearching;
+
+    box.scrollTo(box.scrollTop, 0);
+    clearTable(table.rows.length);
+
+    if (index !== 0)
+    {
+        if (isSorting[index] === 0)
+        {
+            // isSorting[index] === 0 means that it is not sorted in any order.
+            // if isSorting[index] === 0, we need to sort the table in ascending order.
+            mutableArray = mutableArray.sort((a, b) =>
+            {
+                return a[index] - b[index];
+            });
+
+            data.isSorting = [0, 0, 0, 0];
+            data.isSorting[index] = 1;
+        }
+        else if (isSorting[index] === 1)
+        {
+            // isSorting[index] === 1 means that it is sorted in ascending order.
+            // is isSorting[index] === 1, we need to sort the table in descending order.
+            mutableArray = mutableArray.sort((a, b) =>
+            {
+                return b[index] - a[index];
+            });
+
+            data.isSorting = [0, 0, 0, 0];
+            data.isSorting[index] = 2;
+        }
+        else
+        {
+            // else here means isSorting[index] === 2 means it is in descending order.
+            // if else, we need to return it to how it originally was.
+            if (!isSearching)
+            {
+                mutableArray = data.totalsArray.slice();
+            }
+            else
+            {
+                mutableArray = data.searchedArray.slice();
+            }
+
+            data.isSorting = [0, 0, 0, 0];
+        }
+    }
+    else
+    {
+        if (isSorting[index] === 0)
+        {
+            mutableArray = mutableArray.sort((a, b) => 
+            {
+                return a[index].localeCompare(b[index], undefined, {sensitivity: 'base'})
+            });
+
+            data.isSorting = [0, 0, 0, 0];
+            data.isSorting[index] = 1;
+        }
+        else if (isSorting[index] === 1)
+        {
+            mutableArray = mutableArray.sort((a, b) => 
+            {
+                return a[index].localeCompare(b[index], undefined, {sensitivity: 'base'})
+            }).reverse();
+
+            data.isSorting = [0, 0, 0, 0];
+            data.isSorting[index] = 2;
+        }
+        else
+        {
+            if (!isSearching)
+            {
+                mutableArray = data.totalsArray.slice();
+            }
+            else
+            {
+                mutableArray = data.searchedArray.slice();
+            }
+
+            data.isSorting = [0, 0, 0, 0];
+        }
+    }
+
+    if (mutableArray.length > 50)
+    {
+        for (let i = 0; i < 50; i++)
+        {
+            createRows(table, mutableArray[i]);
+        }
+    }
+    else
+    {
+        for (const arr of mutableArray)
+        {
+            createRows(table, arr);
+        }
+    }
+    
+    data.mutableArray = mutableArray;
+}
+
+/**
+ * Filters out user data based on whether username matches the search input.
+ * 
+ * @function
+ */
+function searchEvent()
+{
+    const table = data.table;
+    const box = data.box;
+    const search = data.search;
+
+    data.isSorting = [0, 0, 0, 0];
+
+    let mutableArray = data.mutableArray;
+    let totalsArray = data.totalsArray.slice();
+    let re = new RegExp('^\(-|_\)' + search.value + '|^' + search.value, 'gi');
+
+    box.scrollTo(box.scrollTop, 0);
+    clearTable(table.rows.length);
+
+
+    if (search.value !== '')
+    {
+        mutableArray = totalsArray.filter(user => re.test(user[0]));
+        data.isSearching = true;
+    }
+    else
+    {
+        mutableArray = totalsArray;
+        data.isSearching = false;
+    }
+
+    if (mutableArray.length > 50)
+    {
+        for (let i = 0; i < 50; i++)
+        {
+            createRows(table, mutableArray[i]);
+        }
+    }
+    else
+    {
+        for (const user of mutableArray)
+        {
+            createRows(table, user);
+        }
+    }
+
+    data.mutableArray = mutableArray;
+    data.searchedArray = mutableArray.slice();
+    console.log(data.totalsArray);
+    console.log(data.mutableArray);
 }
 
 function truncateUsername(user)

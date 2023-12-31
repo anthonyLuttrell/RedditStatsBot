@@ -323,6 +323,9 @@ function sortTables(index)
     {
         if (isSorting[index] === 0)
         {
+            // isSorting[index] === 0 means that it is not in any order.
+            // We need to sort this alphabeticaly in ascending order.
+            // I sorted it case-insensitice using localeCompare instead of just sort().
             mutableArray = mutableArray.sort((a, b) => 
             {
                 return a[index].localeCompare(b[index], undefined, {sensitivity: 'base'})
@@ -333,6 +336,8 @@ function sortTables(index)
         }
         else if (isSorting[index] === 1)
         {
+            // isSorting[index] === 1 means that it is in alphabetically ordered.
+            // We need to order it in reverse alphabetical order.
             mutableArray = mutableArray.sort((a, b) => 
             {
                 return a[index].localeCompare(b[index], undefined, {sensitivity: 'base'})
@@ -343,6 +348,8 @@ function sortTables(index)
         }
         else
         {
+            // else meand that isSorting[index] === 2 so it's in reverse alphabetical order.
+            // We need to return it to how it originally was.
             if (!isSearching)
             {
                 mutableArray = data.totalsArray.slice();
@@ -371,6 +378,7 @@ function sortTables(index)
         }
     }
     
+    // Reassign the value of data.mutableArray so that the new value can be used elsewhere.
     data.mutableArray = mutableArray;
 }
 
@@ -381,11 +389,13 @@ function sortTables(index)
  */
 function searchEvent()
 {
+    // When searching any sorting done is reset.
+    // Results can be sorted through still.
+    data.isSorting = [0, 0, 0, 0];
+
     const table = data.table;
     const box = data.box;
     const search = data.search;
-
-    data.isSorting = [0, 0, 0, 0];
 
     let mutableArray = data.mutableArray;
     let totalsArray = data.totalsArray.slice();
@@ -393,7 +403,6 @@ function searchEvent()
 
     box.scrollTo(box.scrollTop, 0);
     clearTable(table.rows.length);
-
 
     if (search.value !== '')
     {
@@ -423,8 +432,6 @@ function searchEvent()
 
     data.mutableArray = mutableArray;
     data.searchedArray = mutableArray.slice();
-    console.log(data.totalsArray);
-    console.log(data.mutableArray);
 }
 
 function truncateUsername(user)

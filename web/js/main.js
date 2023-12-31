@@ -267,12 +267,21 @@ function sortTables(index)
     const table = data.table;
     const box = data.box;
 
-    let mutableArray = data.mutableArray;
+    let sortArray;
     // isSorting is an array which records how the table is sorted currently and is
     // useful to tell the browser how to sort it when header is clicked.
     let isSorting = data.isSorting;
     // isSorting is a boolean variable that stores whether the search bar is empty or not.
     let isSearching = data.isSearching;
+
+    if (!isSearching)
+    {
+        sortArray = data.totalsArray.slice();
+    }
+    else
+    {
+        sortArray = data.searchedArray.slice();
+    }
 
     box.scrollTo(box.scrollTop, 0);
     clearTable(table.rows.length);
@@ -283,7 +292,7 @@ function sortTables(index)
         {
             // isSorting[index] === 0 means that it is not sorted in any order.
             // if isSorting[index] === 0, we need to sort the table in ascending order.
-            mutableArray = mutableArray.sort((a, b) =>
+            sortArray = sortArray.sort((a, b) =>
             {
                 return a[index] - b[index];
             });
@@ -295,7 +304,7 @@ function sortTables(index)
         {
             // isSorting[index] === 1 means that it is sorted in ascending order.
             // is isSorting[index] === 1, we need to sort the table in descending order.
-            mutableArray = mutableArray.sort((a, b) =>
+            sortArray = sortArray.sort((a, b) =>
             {
                 return b[index] - a[index];
             });
@@ -309,11 +318,11 @@ function sortTables(index)
             // if else, we need to return it to how it originally was.
             if (!isSearching)
             {
-                mutableArray = data.totalsArray.slice();
+                sortArray = data.totalsArray.slice();
             }
             else
             {
-                mutableArray = data.searchedArray.slice();
+                sortArray = data.searchedArray.slice();
             }
 
             data.isSorting = [0, 0, 0, 0];
@@ -326,7 +335,7 @@ function sortTables(index)
             // isSorting[index] === 0 means that it is not in any order.
             // We need to sort this alphabeticaly in ascending order.
             // I sorted it case-insensitice using localeCompare instead of just sort().
-            mutableArray = mutableArray.sort((a, b) => 
+            sortArray = sortArray.sort((a, b) => 
             {
                 return a[index].localeCompare(b[index], undefined, {sensitivity: 'base'})
             });
@@ -338,7 +347,7 @@ function sortTables(index)
         {
             // isSorting[index] === 1 means that it is in alphabetically ordered.
             // We need to order it in reverse alphabetical order.
-            mutableArray = mutableArray.sort((a, b) => 
+            sortArray = sortArray.sort((a, b) => 
             {
                 return a[index].localeCompare(b[index], undefined, {sensitivity: 'base'})
             }).reverse();
@@ -352,34 +361,34 @@ function sortTables(index)
             // We need to return it to how it originally was.
             if (!isSearching)
             {
-                mutableArray = data.totalsArray.slice();
+                sortArray = data.totalsArray.slice();
             }
             else
             {
-                mutableArray = data.searchedArray.slice();
+                sortArray = data.searchedArray.slice();
             }
 
             data.isSorting = [0, 0, 0, 0];
         }
     }
 
-    if (mutableArray.length > 50)
+    if (sortArray.length > 50)
     {
         for (let i = 0; i < 50; i++)
         {
-            createRows(table, mutableArray[i]);
+            createRows(table, sortArray[i]);
         }
     }
     else
     {
-        for (const arr of mutableArray)
+        for (const arr of sortArray)
         {
             createRows(table, arr);
         }
     }
     
     // Reassign the value of data.mutableArray so that the new value can be used elsewhere.
-    data.mutableArray = mutableArray;
+    data.mutableArray = sortArray;
 }
 
 /**
@@ -399,6 +408,7 @@ function searchEvent()
 
     let mutableArray = data.mutableArray;
     let totalsArray = data.totalsArray.slice();
+    // regexp which the usernames are compared to.
     let re = new RegExp('^\(-|_\)' + search.value + '|^' + search.value, 'gi');
 
     box.scrollTo(box.scrollTop, 0);
@@ -406,11 +416,13 @@ function searchEvent()
 
     if (search.value !== '')
     {
+        // If search box is not empty, filter through the array select only the ones that match the regexp
         mutableArray = totalsArray.filter(user => re.test(user[0]));
         data.isSearching = true;
     }
     else
     {
+        // if search box is empty, all values should be selected.
         mutableArray = totalsArray;
         data.isSearching = false;
     }

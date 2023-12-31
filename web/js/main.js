@@ -486,31 +486,6 @@ function getTotalsArray(usersObj)
     return totalsArray;
 }
 
-/* function filterInput()
-{
-    const input = document.getElementById("search-box");
-    const filter = input.value.toUpperCase();
-    const table = document.getElementById("output-table");
-    const tr = table.getElementsByTagName("tr");
-
-    for (let i = 0; i < tr.length; i++)
-    {
-        const td = tr[i].getElementsByTagName("td")[0];
-        if (td)
-        {
-            let txtValue = td.textContent || td.innerText;
-            if (txtValue.toUpperCase().indexOf(filter) > -1)
-            {
-                tr[i].style.display = "";
-            }
-            else
-            {
-                tr[i].style.display = "none";
-            }
-        }
-    }
-} */
-
 function clearTable(tableLength)
 {
     const table = document.getElementById("output-table").getElementsByTagName("tbody")[0]
@@ -518,33 +493,6 @@ function clearTable(tableLength)
     {
         table.deleteRow(-1);
     }
-}
-
-function sortTableRowsByColumn(columnIndex, ascending)
-{
-    const table = document.getElementById("output-table");
-    const rows = Array.from(table.querySelectorAll(':scope > tbody > tr'));
-    document.body.className = 'waiting';
-    rows.sort((x, y) =>
-    {
-
-        const xValue = x.cells[columnIndex].textContent;
-        const yValue = y.cells[columnIndex].textContent;
-
-        const xNum = parseFloat(xValue);
-        const yNum = parseFloat(yValue);
-
-        return ascending ? (xNum - yNum) : (yNum - xNum);
-    });
-
-    const fragment = new DocumentFragment();
-    for (let row of rows)
-    {
-        fragment.appendChild(row);
-    }
-
-    table.tBodies[0].appendChild(fragment);
-    document.body.className = '';
 }
 
 function setSelectBoxWidth()

@@ -17,7 +17,6 @@ const data = {
     users: {},
     totalsArray: [],
     mutableArray: [],
-    mutatedArray: [],
     searchedArray: [],
     box: document.getElementById('output-table-div'),
     selectBox: document.getElementById('subreddits-select'),
@@ -153,7 +152,6 @@ function displayAllUsers(value)
     data.users = users;
     data.totalsArray = totalsArray;
     data.mutableArray = totalsArray.slice();
-    data.mutatedArray = totalsArray.slice();
     data.isSorting = [0, 0, 0, 0];
 
     search.value = '';
@@ -374,7 +372,6 @@ function sortTables(index)
     }
     
     data.mutableArray = mutableArray;
-    data.mutatedArray = mutableArray.slice();
 }
 
 /**
@@ -384,13 +381,14 @@ function sortTables(index)
  */
 function searchEvent()
 {
-    console.log('hi');
     const table = data.table;
     const box = data.box;
     const search = data.search;
-    const mutatedArray = data.mutatedArray.slice();
+
+    data.isSorting = [0, 0, 0, 0];
 
     let mutableArray = data.mutableArray;
+    let totalsArray = data.totalsArray.slice();
     let re = new RegExp('^\(-|_\)' + search.value + '|^' + search.value, 'gi');
 
     box.scrollTo(box.scrollTop, 0);
@@ -399,12 +397,12 @@ function searchEvent()
 
     if (search.value !== '')
     {
-        mutableArray = mutableArray.filter(user => re.test(user[0]));
+        mutableArray = totalsArray.filter(user => re.test(user[0]));
         data.isSearching = true;
     }
     else
     {
-        mutableArray = mutatedArray;
+        mutableArray = totalsArray;
         data.isSearching = false;
     }
 
@@ -425,8 +423,8 @@ function searchEvent()
 
     data.mutableArray = mutableArray;
     data.searchedArray = mutableArray.slice();
+    console.log(data.totalsArray);
     console.log(data.mutableArray);
-    console.log(data.searchedArray);
 }
 
 function truncateUsername(user)

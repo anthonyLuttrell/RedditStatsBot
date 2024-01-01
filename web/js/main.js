@@ -7,6 +7,7 @@ const TOTAL_COMMENTS_IDX = 1;
 const TOTAL_SCORE_IDX = 2;
 const TOTAL_NEG_COMMENTS_IDX = 3;
 const WINDOW_RATIO = window.innerWidth / window.innerHeight;
+const numOfRows = 50;
 // I split up the displayUserData function but I needed to use some of the variables initialised
 // within the function in other functions so I made this object to store those variables so that
 // they can be used in multiple places after being initialised.
@@ -163,9 +164,9 @@ function displayAllUsers(value)
 
     document.body.className = 'waiting';
 
-    if (totalsArray.length > 50)
+    if (totalsArray.length > numOfRows)
     {
-        for (let i = 0; i < 50; i++)
+        for (let i = 0; i < numOfRows; i++)
         {
             createRows(table, totalsArray[i]);
         }
@@ -229,13 +230,14 @@ function scrollEvent()
     const table = data.table;
     const mutableArray = data.mutableArray;
     const box = data.box;
-
+    const pixelsRemaining = (box.scrollHeight - box.clientHeight - box.scrollTop)
+    const arrayIsLargerThanTable = mutableArray.length > table.rows.length
 
     // Only trigger if both conditions are met
-    if ((box.scrollHeight - box.clientHeight - box.scrollTop) <= 10 && mutableArray.length > table.rows.length)
+    if (pixelsRemaining <= 10 && arrayIsLargerThanTable)
     {
         let visibleRows = table.rows.length;
-        let newRows = visibleRows + 50;
+        let newRows = visibleRows + numOfRows;
 
         for (let i = visibleRows; i < newRows; i++)
         {
@@ -267,12 +269,16 @@ function sortTables(index)
     const table = data.table;
     const box = data.box;
 
-    let sortArray;
+    let sortArray = [];
     // isSorting is an array which records how the table is sorted currently and is
     // useful to tell the browser how to sort it when header is clicked.
     let isSorting = data.isSorting;
     // isSorting is a boolean variable that stores whether the search bar is empty or not.
     let isSearching = data.isSearching;
+
+    const notSorted = isSorting[index] === 0;
+    const alphaSorted = isSorting[index] === 1;
+    const reverseAlphaSorted = isSorting[index] === 2;
 
     if (!isSearching)
     {
@@ -286,95 +292,87 @@ function sortTables(index)
     box.scrollTo(box.scrollTop, 0);
     clearTable(table.rows.length);
 
-    if (index !== 0)
+    
+    if (notSorted)
     {
-        if (isSorting[index] === 0)
+        // isSorting[index] === 0 means that it is not sorted in any order.
+        // if isSorting[index] === 0, we need to sort the table in ascending order.
+        if (!index)
         {
-            // isSorting[index] === 0 means that it is not sorted in any order.
-            // if isSorting[index] === 0, we need to sort the table in ascending order.
+            let start = performance.now();
+            sortArray = sortArray.sort((a, b) => 
+            {
+                return a[index].localeCompare(b[index], undefined, {sensitivity: 'base'})
+            });
+            let end = performance.now();
+
+            console.log(end - start);
+        }
+        else if (index)
+        {
             sortArray = sortArray.sort((a, b) =>
             {
                 return a[index] - b[index];
             });
-
-            data.isSorting = [0, 0, 0, 0];
-            data.isSorting[index] = 1;
-        }
-        else if (isSorting[index] === 1)
-        {
-            // isSorting[index] === 1 means that it is sorted in ascending order.
-            // is isSorting[index] === 1, we need to sort the table in descending order.
-            sortArray = sortArray.sort((a, b) =>
-            {
-                return b[index] - a[index];
-            });
-
-            data.isSorting = [0, 0, 0, 0];
-            data.isSorting[index] = 2;
         }
         else
         {
-            // else here means isSorting[index] === 2 means it is in descending order.
-            // if else, we need to return it to how it originally was.
-            if (!isSearching)
-            {
-                sortArray = data.totalsArray.slice();
-            }
-            else
-            {
-                sortArray = data.searchedArray.slice();
-            }
-
-            data.isSorting = [0, 0, 0, 0];
+            console.warn('Something is wrong with sorting');
         }
+
+        data.isSorting.fill(0);
+        data.isSorting[index] = 1;
     }
-    else
+    else if (alphaSorted)
     {
-        if (isSorting[index] === 0)
+        // isSorting[index] === 1 means that it is sorted in ascending order.
+        // is isSorting[index] === 1, we need to sort the table in descending order.
+        if (!index)
         {
-            // isSorting[index] === 0 means that it is not in any order.
-            // We need to sort this alphabeticaly in ascending order.
-            // I sorted it case-insensitice using localeCompare instead of just sort().
-            sortArray = sortArray.sort((a, b) => 
-            {
-                return a[index].localeCompare(b[index], undefined, {sensitivity: 'base'})
-            });
-
-            data.isSorting = [0, 0, 0, 0];
-            data.isSorting[index] = 1;
-        }
-        else if (isSorting[index] === 1)
-        {
-            // isSorting[index] === 1 means that it is in alphabetically ordered.
-            // We need to order it in reverse alphabetical order.
+            let start = performance.now();
             sortArray = sortArray.sort((a, b) => 
             {
                 return a[index].localeCompare(b[index], undefined, {sensitivity: 'base'})
             }).reverse();
+            let end = performance.now();
 
-            data.isSorting = [0, 0, 0, 0];
-            data.isSorting[index] = 2;
+            console.log(end - start);
+        }
+        else if (index)
+        {
+            sortArray = sortArray.sort((a, b) =>
+            {
+                return b[index] - a[index];
+            });
         }
         else
         {
-            // else meand that isSorting[index] === 2 so it's in reverse alphabetical order.
-            // We need to return it to how it originally was.
-            if (!isSearching)
-            {
-                sortArray = data.totalsArray.slice();
-            }
-            else
-            {
-                sortArray = data.searchedArray.slice();
-            }
-
-            data.isSorting = [0, 0, 0, 0];
+            console.warn('Something is wrong with sorting');
         }
+    
+        data.isSorting.fill(0);
+        data.isSorting[index] = 2;
     }
-
-    if (sortArray.length > 50)
+    else if (reverseAlphaSorted)
     {
-        for (let i = 0; i < 50; i++)
+        // else here means isSorting[index] === 2 means it is in descending order.
+        // if else, we need to return it to how it originally was.
+        if (!isSearching)
+        {
+            sortArray = data.totalsArray.slice();
+        }
+        else
+        {
+            sortArray = data.searchedArray.slice();
+        }
+
+        data.isSorting.fill(0);
+    }
+    
+
+    if (sortArray.length > numOfRows)
+    {
+        for (let i = 0; i < numOfRows; i++)
         {
             createRows(table, sortArray[i]);
         }
@@ -427,9 +425,9 @@ function searchEvent()
         data.isSearching = false;
     }
 
-    if (mutableArray.length > 50)
+    if (mutableArray.length > numOfRows)
     {
-        for (let i = 0; i < 50; i++)
+        for (let i = 0; i < numOfRows; i++)
         {
             createRows(table, mutableArray[i]);
         }

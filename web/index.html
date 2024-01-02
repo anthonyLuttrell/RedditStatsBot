@@ -18,7 +18,7 @@
   <link rel="apple-touch-icon" href="icon.png">
 
   <link rel="stylesheet" href="css/normalize.css">
-  <link rel="stylesheet" href="css/main.css?1703612215181">
+  <link rel="stylesheet" href="css/main.css?1703692836677">
 
   <meta name="theme-color" content="#fafafa">
 </head>
@@ -41,16 +41,16 @@
       </label>
     </div>
     <div class="search-div" id="search-username-div" style="visibility: hidden">
-      <input type="text" id="search-box" onkeyup="filterInput()" placeholder="Search for username...">
+      <input type="text" id="search-box" placeholder="Search for username..." oninput="searchEvent()">
     </div>
-    <div class="table-div" id="output-table-div">
+    <div class="table-div" id="output-table-div" onscroll="scrollEvent()">
       <table id="output-table">
         <thead>
         <tr class="header">
-          <th style="width:33%;" onclick="sortTableRowsByColumn(0)">User</th>
-          <th style="width:22.3%;" onclick="sortTableRowsByColumn(1)">Comments</th>
-          <th style="width:22.3%;" onclick="sortTableRowsByColumn(2)">Score</th>
-          <th style="width:22.3%;" onclick="sortTableRowsByColumn(3)">Negs</th>
+          <th style="width:33%;" onclick="sortTables(0)">User</th>
+          <th style="width:22.3%;" onclick="sortTables(1)">Comments</th>
+          <th style="width:22.3%;" onclick="sortTables(2)">Score</th>
+          <th style="width:22.3%;" onclick="sortTables(3)">Negs</th>
         </tr>
         </thead>
         <tbody>
@@ -69,7 +69,7 @@
   </div>
   <script src="js/vendor/modernizr-3.11.2.min.js"></script>
   <script src="js/plugins.js"></script>
-  <script src="js/main.js?1703612232198"></script>
+  <script src="js/main.js?1704152692656"></script>
 
 </body>
 

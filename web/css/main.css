@@ -384,6 +384,11 @@ textarea {
   font-size: 12px; /* Increase font-size */
 }
 
+#output-table thead {
+  position: sticky;
+  top: 0;
+}
+
 #output-table th, #output-table td {
   text-align: left; /* Left-align text */
   padding: 8px; /* Add padding */
